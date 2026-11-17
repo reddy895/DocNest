@@ -17,6 +17,10 @@ class ChunkMetadata(BaseModel):
     char_count: int
     file_hash: str
 
+    @property
+    def source(self) -> str:
+        return f"{self.filename} (Page {self.page_number})"
+
     def to_chroma_metadata(self) -> Dict[str, Any]:
         """Convert to Chroma-compatible flat dictionary."""
         return {
