@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import List, Optional, Any
 from chromadb.api.types import Documents, EmbeddingFunction, Embeddings
 from sentence_transformers import SentenceTransformer
 from backend.app.core.config import settings
@@ -52,12 +52,17 @@ class LocalSentenceTransformerEmbedder(EmbeddingFunction[Documents]):
             logger.error(f"Error generating embeddings for {len(input)} documents: {exc}")
             raise RuntimeError(f"Embedding generation failed: {exc}")
 
-    def embed_query(self, query: str) -> List[float]:
+    def embed_query(self, input: Any = None, query: Any = None, *args, **kwargs) -> Any:
         """
-        Embed a single search query string.
+        Embed queries for similarity search. Compatible with both ChromaDB
+        embed_query(input=[...]) and custom embed_query(query='...').
         """
-        result = self([query])
-        return result[0] if result else []
+        target = input if input is not None else query
+        if target is None:
+            return []
+        if isinstance(target, str):
+            target = [target]
+        return self(target)
 
 
 # Module singleton
