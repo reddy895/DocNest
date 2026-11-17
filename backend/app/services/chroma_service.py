@@ -149,6 +149,61 @@ class ChromaService:
 
         return chunks_deleted
 
+    def query_documents(
+        self,
+        query_text: str,
+        top_k: int = 4,
+        doc_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Query vector collection for similar passages with optional document-level isolation.
+        """
+        total = self.count()
+        if total == 0:
+            return {
+                "ids": [[]],
+                "documents": [[]],
+                "metadatas": [[]],
+                "distances": [[]],
+            }
+
+        # Build where clause if document isolation is requested
+        where_filter: Optional[Dict[str, Any]] = None
+        if doc_id:
+            where_filter = {"doc_id": doc_id}
+            # Verify document has chunks
+            existing = self.collection.get(where=where_filter)
+            doc_chunk_count = len(existing.get("ids", []))
+            if doc_chunk_count == 0:
+                return {
+                    "ids": [[]],
+                    "documents": [[]],
+                    "metadatas": [[]],
+                    "distances": [[]],
+                }
+            effective_k = min(top_k, doc_chunk_count)
+        else:
+            effective_k = min(top_k, total)
+
+        if effective_k <= 0:
+            return {
+                "ids": [[]],
+                "documents": [[]],
+                "metadatas": [[]],
+                "distances": [[]],
+            }
+
+        query_kwargs: Dict[str, Any] = {
+            "query_texts": [query_text],
+            "n_results": effective_k,
+            "include": ["documents", "metadatas", "distances"],
+        }
+        if where_filter:
+            query_kwargs["where"] = where_filter
+
+        results = self.collection.query(**query_kwargs)
+        return results
+
     def initialize(self) -> None:
         """Initialize Chroma PersistentClient and ensure target collection exists."""
         try:
