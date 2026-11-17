@@ -4,6 +4,7 @@ import chromadb
 from chromadb.api.models.Collection import Collection
 import json
 from pathlib import Path
+from backend.app.core.config import settings
 from backend.app.models.document import DocumentRecord, ChunkMetadata
 from backend.app.services.chunker import DocumentChunk
 from backend.app.services.embedder import get_embedder
@@ -99,13 +100,12 @@ class ChromaService:
             return DocumentRecord(**registry[doc_id])
         return None
 
-    def find_document_by_filename(self, filename: str) -> Optional[DocumentRecord]:
-        """Retrieve document metadata by exact filename."""
+    def list_documents(self) -> List[DocumentRecord]:
+        """Return all indexed documents sorted by upload date descending."""
         registry = self._load_registry()
-        for doc_data in registry.values():
-            if doc_data.get("filename") == filename:
-                return DocumentRecord(**doc_data)
-        return None
+        docs = [DocumentRecord(**d) for d in registry.values()]
+        docs.sort(key=lambda d: d.upload_date, reverse=True)
+        return docs
 
     def initialize(self) -> None:
         """Initialize Chroma PersistentClient and ensure target collection exists."""
