@@ -82,6 +82,31 @@ class ChromaService:
         self._save_registry(registry)
         logger.info(f"Document '{doc_record.filename}' ({doc_record.doc_id}) indexed successfully with {len(chunks)} chunks.")
 
+    def find_document_by_hash(self, file_hash: str) -> Optional[DocumentRecord]:
+        """
+        Check if a document with identical SHA-256 hash has already been indexed.
+        """
+        registry = self._load_registry()
+        for doc_data in registry.values():
+            if doc_data.get("file_hash") == file_hash:
+                return DocumentRecord(**doc_data)
+        return None
+
+    def find_document_by_id(self, doc_id: str) -> Optional[DocumentRecord]:
+        """Retrieve document metadata by doc_id."""
+        registry = self._load_registry()
+        if doc_id in registry:
+            return DocumentRecord(**registry[doc_id])
+        return None
+
+    def find_document_by_filename(self, filename: str) -> Optional[DocumentRecord]:
+        """Retrieve document metadata by exact filename."""
+        registry = self._load_registry()
+        for doc_data in registry.values():
+            if doc_data.get("filename") == filename:
+                return DocumentRecord(**doc_data)
+        return None
+
     def initialize(self) -> None:
         """Initialize Chroma PersistentClient and ensure target collection exists."""
         try:
