@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from backend.app.core.config import settings
 from backend.app.models.document import DocumentRecord, ChunkMetadata
+from backend.app.models.schemas import Citation
 from backend.app.services.chunker import DocumentChunk
 from backend.app.services.embedder import get_embedder
 
@@ -203,6 +204,63 @@ class ChromaService:
 
         results = self.collection.query(**query_kwargs)
         return results
+
+    def get_relevant_chunks(
+        self,
+        query_text: str,
+        top_k: int = 4,
+        doc_id: Optional[str] = None,
+        similarity_threshold: float = 0.25,
+    ) -> List[Citation]:
+        """
+        Execute similarity search, convert distances to normalized relevance scores,
+        filter against the similarity threshold, and return structured citations.
+        """
+        raw_results = self.query_documents(query_text=query_text, top_k=top_k, doc_id=doc_id)
+
+        docs = raw_results.get("documents", [[]])[0]
+        metas = raw_results.get("metadatas", [[]])[0]
+        dists = raw_results.get("distances", [[]])[0]
+
+        citations: List[Citation] = []
+
+        for i, text in enumerate(docs):
+            if not text or not text.strip():
+                continue
+
+            # Chroma cosine distance ranges from 0 (identical) to 2 (opposite)
+            raw_distance = dists[i] if i < len(dists) else 1.0
+            # Calculate similarity: 1.0 - distance
+            similarity = max(0.0, min(1.0, 1.0 - raw_distance))
+
+            meta = metas[i] if i < len(metas) else {}
+            filename = str(meta.get("filename", "Document"))
+            page_num = int(meta.get("page_number", 1))
+            chunk_idx = int(meta.get("chunk_index", i))
+            c_id = str(meta.get("chunk_id", f"c_{i}"))
+
+            # Filter out chunks below relevance threshold
+            if similarity < similarity_threshold:
+                logger.debug(
+                    f"Discarding chunk {c_id} with relevance {similarity:.3f} "
+                    f"below threshold {similarity_threshold}"
+                )
+                continue
+
+            citations.append(
+                Citation(
+                    source_id=c_id,
+                    filename=filename,
+                    page_number=page_num,
+                    chunk_index=chunk_idx,
+                    content=text.strip(),
+                    relevance_score=round(similarity, 4),
+                )
+            )
+
+        # Sort by relevance score descending
+        citations.sort(key=lambda c: c.relevance_score, reverse=True)
+        return citations
 
     def initialize(self) -> None:
         """Initialize Chroma PersistentClient and ensure target collection exists."""
