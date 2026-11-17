@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:all": "concurrently -n \"BACKEND,FRONTEND\" -c \"yellow,cyan\" \"npm run backend\" \"vite\"",
+    "backend": "cd .. && bash -c 'if [ -f .venv/bin/uvicorn ]; then .venv/bin/uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload; else uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload; fi'",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -18,6 +20,7 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
+    "concurrently": "^10.0.7",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
     "vite": "^6.0.0"

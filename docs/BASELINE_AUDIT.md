@@ -52,3 +52,4 @@ DocNest is being transformed from an experimental monolithic Streamlit prototype
 - **Frontend:** React + Vite + Tailwind CSS styled with the mandatory **Forged Carbon (#202326)**, **Titanium Silver (#BFC3C7)**, and **Signal Yellow (#F4D21F)** design system (60:30:10 ratio).
 - **RAG Engine:** Page-aware chunking, duplicate content hashing (SHA-256), metadata tagging, relevance score thresholds, and citation deep-linking.
 - **Testing:** 100% automated pytest coverage for backend services and production Vite build validation for the frontend.
+

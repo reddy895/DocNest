@@ -122,3 +122,4 @@ def get_rag_service() -> RAGService:
     if _rag_service is None:
         _rag_service = RAGService()
     return _rag_service
+

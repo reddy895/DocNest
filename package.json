@@ -1,0 +1,18 @@
+{
+  "name": "docnest",
+  "version": "1.0.0",
+  "description": "DocNest — Enterprise Document Intelligence & RAG Platform",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"yellow,cyan\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "bash -c 'if [ -f .venv/bin/uvicorn ]; then .venv/bin/uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload; else uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload; fi'",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "backend": "npm run dev:backend",
+    "frontend": "npm run dev:frontend",
+    "build": "npm --prefix frontend run build",
+    "test": "bash -c 'if [ -f .venv/bin/pytest ]; then PYTHONPATH=. .venv/bin/pytest tests/; else PYTHONPATH=. pytest tests/; fi'"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

@@ -29,3 +29,4 @@
 4. **Grounded Question Answering:** Answered queries using only retrieved context with strict anti-hallucination prompts.
 5. **Interactive Source Citations:** Interactive citation badges displaying document name, page number, relevance score, and excerpt.
 6. **Document Deletion:** Clean removal of all vectors from ChromaDB and physical deletion of the PDF file from disk.
+

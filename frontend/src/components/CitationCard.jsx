@@ -66,3 +66,4 @@ export default function CitationCard({ citation, index, onOpenPage }) {
     </div>
   );
 }
+

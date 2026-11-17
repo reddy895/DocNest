@@ -40,3 +40,4 @@ def test_upload_invalid_file(client):
     files = {"file": ("test.txt", b"plain text content", "text/plain")}
     response = client.post("/api/documents/upload", files=files)
     assert response.status_code in [400, 422]
+

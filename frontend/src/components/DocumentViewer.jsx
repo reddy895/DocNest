@@ -90,3 +90,4 @@ export default function DocumentViewer({ document, initialPage = 1, onClose }) {
     </div>
   );
 }
+

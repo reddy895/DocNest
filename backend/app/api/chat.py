@@ -71,3 +71,4 @@ async def get_suggested_questions(doc_id: Optional[str] = None):
             "What recommendations or action items are outlined?",
         ],
     }
+

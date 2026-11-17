@@ -69,3 +69,4 @@ class ChatQueryResponse(BaseModel):
     processing_time_seconds: float
     model_used: str
     doc_id_filtered: Optional[str] = None
+

@@ -197,3 +197,4 @@ npm run build
 ## 9. License
 
 MIT License. Designed and engineered for institutional document intelligence.
+

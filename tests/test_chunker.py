@@ -41,3 +41,4 @@ def test_create_document_chunks_preserves_pages():
     assert chunks[1].page_number == 2
     assert chunks[0].metadata.source == "test_doc.pdf (Page 1)"
     assert chunks[1].metadata.source == "test_doc.pdf (Page 2)"
+

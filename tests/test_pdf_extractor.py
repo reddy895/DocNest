@@ -19,3 +19,4 @@ def test_extract_real_pdf():
         assert res.pages[0].page_number == 1
         assert res.total_chars > 0
         assert not res.is_scanned
+

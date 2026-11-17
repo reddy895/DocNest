@@ -29,3 +29,4 @@ def test_validate_valid_pdf_header():
     assert res.is_valid
     assert res.file_size_bytes == len(content)
     assert res.file_hash == compute_sha256(content)
+

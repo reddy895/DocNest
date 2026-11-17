@@ -121,3 +121,4 @@ def extract_pdf_pages(file_bytes: bytes, filename: str) -> ExtractionResult:
             pages=[],
             error_message=f"Text extraction failed: {str(exc)}",
         )
+

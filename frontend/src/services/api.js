@@ -80,3 +80,4 @@ export async function fetchChatSuggestions(docId = null) {
   if (!res.ok) throw new Error('Failed to fetch suggestions');
   return res.json();
 }
+

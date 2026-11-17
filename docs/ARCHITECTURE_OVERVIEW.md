@@ -83,3 +83,4 @@ flowchart LR
 | **Frontend** | React 18 + Vite | Modern reactive client architecture |
 | **Styling** | Tailwind CSS v3 | Design system tokens for Forged Carbon palette |
 | **Icons** | Lucide React | Clean, lightweight industrial icons |
+
