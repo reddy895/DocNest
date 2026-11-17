@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from backend.app.api.health import router as health_router
 
 # Configure standard structured logging
 logging.basicConfig(
@@ -46,6 +47,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(health_router)
 
 
 @app.middleware("http")
