@@ -10,7 +10,7 @@ from backend.app.services.pdf_extractor import extract_pdf_pages
 from backend.app.services.chunker import create_document_chunks
 from backend.app.services.chroma_service import get_chroma_service
 from backend.app.models.document import DocumentRecord
-from backend.app.models.schemas import DocumentInfo, DocumentListResponse
+from backend.app.models.schemas import DocumentInfo, DocumentListResponse, DeleteDocumentResponse
 from backend.app.core.config import settings
 
 logger = logging.getLogger("docnest.api.documents")
@@ -99,6 +99,30 @@ async def get_document_file(doc_id: str):
         path=str(file_path),
         media_type="application/pdf",
         filename=doc.filename,
+    )
+
+
+@router.delete("/{doc_id}", response_model=DeleteDocumentResponse)
+async def delete_document(doc_id: str):
+    """
+    Delete a document, purges its chunks from ChromaDB, and removes file from disk.
+    """
+    chroma = get_chroma_service()
+    doc = chroma.find_document_by_id(doc_id)
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document with ID '{doc_id}' not found.",
+        )
+
+    deleted_count = chroma.delete_document(doc_id)
+
+    return DeleteDocumentResponse(
+        doc_id=doc_id,
+        filename=doc.filename,
+        chunks_deleted=deleted_count,
+        success=True,
+        message=f"Document '{doc.filename}' and {deleted_count} chunks deleted successfully.",
     )
 
 

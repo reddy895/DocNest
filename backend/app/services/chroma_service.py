@@ -107,6 +107,48 @@ class ChromaService:
         docs.sort(key=lambda d: d.upload_date, reverse=True)
         return docs
 
+    def delete_document(self, doc_id: str) -> int:
+        """
+        Delete all chunks for a document from ChromaDB, remove the PDF
+        from disk, and purge its entry from the registry.
+        Returns the number of deleted chunks.
+        """
+        registry = self._load_registry()
+        if doc_id not in registry:
+            return 0
+
+        doc_data = registry[doc_id]
+        filename = doc_data.get("filename", "")
+        file_path_str = doc_data.get("file_path")
+
+        chunks_deleted = 0
+        # 1. Delete from ChromaDB using metadata filter
+        try:
+            # Query existing chunk count for this document
+            existing = self.collection.get(where={"doc_id": doc_id})
+            chunks_deleted = len(existing.get("ids", []))
+            if chunks_deleted > 0:
+                self.collection.delete(where={"doc_id": doc_id})
+                logger.info(f"Deleted {chunks_deleted} chunks from ChromaDB for doc_id='{doc_id}'.")
+        except Exception as e:
+            logger.error(f"Error deleting chunks from ChromaDB for doc_id='{doc_id}': {e}")
+
+        # 2. Delete file from disk
+        if file_path_str:
+            p = Path(file_path_str)
+            if p.exists():
+                try:
+                    p.unlink()
+                    logger.info(f"Deleted physical document file: {p}")
+                except Exception as e:
+                    logger.warning(f"Could not remove document file {p}: {e}")
+
+        # 3. Update registry
+        del registry[doc_id]
+        self._save_registry(registry)
+
+        return chunks_deleted
+
     def initialize(self) -> None:
         """Initialize Chroma PersistentClient and ensure target collection exists."""
         try:
