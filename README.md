@@ -1,8 +1,8 @@
-# DocNest — Enterprise Document Intelligence & RAG Platform
+# DocNest — Production-Grade Local RAG Intelligence Platform
 
 > **Your documents. Your questions. Clear answers.**
 
-DocNest is a production-ready, AI-powered PDF question-answering platform built with **Retrieval-Augmented Generation (RAG)**, **ChromaDB**, **Sentence Transformers**, and locally running **Llama 3.2** via Ollama. It enables users to upload PDF documents, ask natural language questions, and receive accurate answers strictly grounded in document content with verified source page citations.
+DocNest is an enterprise-grade, local document intelligence platform powered by **Retrieval-Augmented Generation (RAG)**, **Ollama (Llama 3.2 3B)**, **ChromaDB**, **BM25 Sparse Search**, and **Cross-Encoder Reranking**. It delivers layout-aware PDF parsing, multi-turn conversational query rewriting, strict inline page citations, and automatic abstention guardrails—optimized for systems with **12 GB RAM**.
 
 ---
 
@@ -10,191 +10,148 @@ DocNest is a production-ready, AI-powered PDF question-answering platform built 
 
 ```mermaid
 flowchart TD
-    subgraph Client["Frontend Client (React + Vite)"]
-        UI_Dash[Dashboard]
-        UI_Lib[Document Library]
-        UI_Up[Upload Modal]
-        UI_Chat[AI Chat Workspace]
-        UI_View[Document Viewer]
-        UI_Set[Settings Console]
+    subgraph Frontend["React 18 + Vite + Tailwind CSS"]
+        UI_Dash["Telemetry Dashboard"]
+        UI_Chat["3-Pane AI Chat Workspace"]
+        UI_Lib["Document Library & Tag Scoping"]
+        UI_Drawer["Side-by-Side Evidence Drawer"]
+        UI_Inspect["Retrieval Inspector"]
+        UI_Eval["RAGAS-Style Eval Benchmark"]
     end
 
-    subgraph API["FastAPI Backend Service"]
-        API_Health["/api/health"]
-        API_Docs["/api/documents"]
-        API_Chat["/api/chat"]
+    subgraph Backend["FastAPI REST & SSE Service"]
+        AuthModule["JWT Auth & Workspace Scoping"]
+        DocModule["Document Ingestion Queue (Docling)"]
+        ChatModule["Chat SSE Token Streaming"]
+        EvalModule["LLM-as-a-Judge Eval Runner"]
+        SystemModule["Health Check & Telemetry Logger"]
     end
 
-    subgraph RAG_Engine["RAG Pipeline"]
-        Val[Validator & Magic Bytes]
-        Ext[Page-by-Page PDF Extractor]
-        Chunk[Sentence-Boundary Chunker]
-        Embed[all-MiniLM-L6-v2 Embedder]
-        Chroma[(ChromaDB Persistent Store)]
-        GroundedPrompt[Grounding Guardrail Engine]
-        OllamaConnector[Ollama Client]
+    subgraph HybridRAG["Dual-Path Hybrid Retrieval Pipeline"]
+        DoclingParser["IBM Docling Layout-Aware Parser"]
+        SemanticChunker["Heading & Structure-Aware Chunker (512/64)"]
+        ChromaStore[("ChromaDB Vector Store (nomic-embed-text)")]
+        BM25Store[("BM25Okapi Disk Persisted Keyword Store")]
+        RRFFusion["Reciprocal Rank Fusion (RRF k=60)"]
+        Reranker["Cross-Encoder ms-marco-MiniLM-L-6-v2 (CPU)"]
+        AbstentionGuard["Abstention Guardrail (Confidence < 0.30)"]
     end
 
-    subgraph Local_AI["Local Inference"]
-        Llama[Llama 3.2 3B Model]
+    subgraph LocalInference["Local Ollama Runtime (11434)"]
+        OllamaLLM["Llama 3.2 3B (LLM Engine)"]
+        OllamaEmbed["nomic-embed-text (768-dim Embeddings)"]
     end
 
-    Client -->|REST API| API
-    API --> RAG_Engine
-    OllamaConnector -->|HTTP 11434| Llama
+    Frontend -->|REST / SSE| Backend
+    DocModule --> DoclingParser --> SemanticChunker
+    SemanticChunker --> ChromaStore
+    SemanticChunker --> BM25Store
+    ChatModule --> RRFFusion
+    ChromaStore --> RRFFusion
+    BM25Store --> RRFFusion
+    RRFFusion --> Reranker --> AbstentionGuard
+    AbstentionGuard -->|Streamed Prompt| OllamaLLM
+    OllamaEmbed --> ChromaStore
 ```
 
 ---
 
-## 2. Key Features
+## 2. Core Upgrades & Engineering Highlights
 
-- **Decoupled Architecture:** Clean separation of concerns with a FastAPI REST backend and a React/Vite single-page frontend.
-- **Strict Grounding Guardrails:** Prompt engineering prevents hallucinations. If facts cannot be verified in the retrieved passages, the model explicitly states it cannot find the information.
-- **Page-Aware Attributions:** Every chunk preserves its exact original PDF page number. Citations link directly to the page in the document viewer.
-- **Deduplication:** Automatic SHA-256 content hashing detects duplicate uploads to avoid redundant vector generation.
-- **Document Isolation:** Users can query across all uploaded documents or isolate questions to a single selected PDF.
-- **Persistent Storage:** All embeddings and metadata are stored in local ChromaDB and file registries across server reboots.
-- **Mandatory Industrial Palette:** High-contrast Forged Carbon (60%), Titanium Silver (30%), and Signal Yellow (10%) design language.
+### A. Layout-Aware Ingestion & Background Queue
+- **IBM Docling Parser:** Layout-aware conversion of PDFs into structured Markdown with automatic fallback, preserving reading order and multi-column tables.
+- **Structure-Aware Chunking:** Recursively splits on headings (`#`, `##`, `###`) into 512-character blocks with 64-character overlap, attaching rich metadata (`doc_id`, `filename`, `page_number`, `section_heading`, `workspace_id`).
+- **Async Ingestion Worker:** Non-blocking background worker with granular stage tracking (`queued -> parsing -> chunking -> embedding -> ready | failed`).
+- **1-Click Sample Datasets:** Bundles 3 curated PDFs (*Quarterly Financial Report*, *Enterprise AI Architecture Whitepaper*, *Corporate Compliance Policy Manual*) for instant onboarding.
 
----
+### B. Dual-Path Hybrid Search & Cross-Encoder Reranking
+- **Dense Vector Search:** High-speed 768-dimensional embeddings generated locally by Ollama `nomic-embed-text` with LRU caching.
+- **BM25 Sparse Keyword Search:** Persistent inverted index synchronized with ChromaDB collections for exact keyword precision.
+- **Reciprocal Rank Fusion (RRF):** Fuses dense and sparse candidate rankings:
+  $$\text{RRF}(d) = \sum_{m \in \{\text{dense}, \text{sparse}\}} \frac{1}{60 + \text{rank}_m(d)}$$
+- **Cross-Encoder Reranking:** Re-scores top-20 candidates using `cross-encoder/ms-marco-MiniLM-L-6-v2` with sigmoid normalization and batched CPU inference optimized for 12GB RAM.
+- **Abstention Guardrail:** Short-circuits generation and returns an explicit abstention response if the maximum reranker confidence score falls below `0.30`.
 
-## 3. Mandatory Colour System
+### C. Conversational Query Rewriting & Strict Citations
+- **Conversational Query Rewriting:** Fast pre-step with Llama 3.2 rewriting multi-turn follow-ups (e.g., *"What are its risks?"*) into self-contained standalone retrieval queries.
+- **Strict Inline Citations:** Factual claims cited inline in `[Filename, p. X]` format.
+- **SSE Token Streaming:** `POST /api/chat/stream` yields tokens, status milestones, and latency traces in real-time.
 
-| Token | Hex Value | Role | Usage Ratio |
-| :--- | :--- | :--- | :--- |
-| **Forged Carbon Primary** | `#202326` | Main App Background | 60% Surfaces |
-| **Forged Carbon Secondary** | `#292D30` | Cards & Containers | |
-| **Forged Carbon Deep** | `#171A1C` | Sidebars & Modals | |
-| **Titanium Silver Light** | `#E0E3E5` | Primary Headings | 30% Content |
-| **Titanium Silver Primary** | `#BFC3C7` | Body Text & Data | |
-| **Titanium Silver Secondary**| `#969DA3` | Metadata & Secondary | |
-| **Titanium Border** | `#555C61` | Dividers & Borders | |
-| **Signal Yellow** | `#F4D21F` | Action Buttons & Active States | 10% Accents |
-| **Signal Yellow Hover** | `#FFDF45` | Button Hover | |
-
----
-
-## 4. Repository Structure
-
-```
-.
-├── backend/
-│   ├── app/
-│   │   ├── api/             # REST Routers: health, documents, chat
-│   │   ├── core/            # Configuration and Pydantic settings
-│   │   ├── models/          # Schemas and document models
-│   │   ├── services/        # Extractor, chunker, embedder, chroma, ollama, rag
-│   │   └── main.py          # FastAPI application entrypoint
-│   ├── documents/           # Stored PDF binaries and registry.json
-│   ├── chroma_db/           # ChromaDB persistent vector database
-│   └── requirements.txt     # Python backend dependencies
-├── frontend/
-│   ├── src/
-│   │   ├── components/      # UploadModal, DocumentViewer, CitationCard, ErrorBoundary
-│   │   ├── layouts/         # AppLayout
-│   │   ├── pages/           # Dashboard, DocumentLibrary, ChatWorkspace, Settings
-│   │   ├── services/        # api.js client
-│   │   ├── styles/          # Tailwind & custom carbon tokens
-│   │   ├── App.jsx
-│   │   └── main.jsx
-│   ├── package.json
-│   └── vite.config.js
-├── tests/                   # Automated pytest suite
-├── docs/                    # Architecture and baseline audit documentation
-├── .env.example             # Configuration template
-├── docker-compose.yml       # Production container orchestration
-├── Dockerfile.backend
-└── README.md
-```
+### D. RAG Evaluation Suite (LLM-as-a-Judge)
+- Scores test datasets on **Faithfulness** (supported claims), **Answer Relevancy**, and **Context Precision@K**.
+- Tracks **P50 / P95 latencies** across retrieval, reranking, and generation.
+- Historical evaluation runs persisted in SQLite for continuous benchmark visibility.
 
 ---
 
-## 5. Getting Started
+## 3. Mandatory Color System (Forged Carbon Aesthetic)
+
+| Token Role | Hex Code | Purpose |
+| :--- | :--- | :--- |
+| **Primary Background** | `#202326` | Main application backdrop |
+| **Secondary Background**| `#292D30` | Cards, panels, active message containers |
+| **Dark Surfaces** | `#303538` | Interactive user turns and elevated controls |
+| **Deep Carbon** | `#171A1C` | Sidebars, navigation bars, and inputs |
+| **Titanium Silver** | `#BFC3C7` / `#E0E3E5` | Text hierarchy and metadata labels |
+| **Borders** | `#555C61` | Subtle industrial boundaries |
+| **Signal Yellow** | `#F4D21F` | Primary actions, active indicators, confidence accents |
+
+---
+
+## 4. Quick Start Guide
 
 ### Prerequisites
-- Python 3.11+
-- Node.js 18+ and npm
-- [Ollama](https://ollama.com/) running locally:
-  ```bash
-  ollama pull llama3.2
-  ```
+1. **Ollama:** Installed and running locally:
+   ```bash
+   ollama pull llama3.2
+   ollama pull nomic-embed-text
+   ollama serve
+   ```
+2. **Python 3.11+** & **Node.js 18+**
 
-### 1. Backend Setup
+### Single-Command Startup
+Install root dependencies and launch both backend and frontend concurrently:
 ```bash
-# Clone the repository
-git clone https://github.com/reddy895/DocNest.git
-cd DocNest
-
-# Create and activate virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r backend/requirements.txt
-
-# Start FastAPI backend
-uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-The API documentation is accessible at `http://localhost:8000/docs`.
-
-### 2. Frontend Setup
-```bash
-# In a separate terminal:
-cd frontend
-
-# Install node dependencies
 npm install
-
-# Start Vite development server
 npm run dev
 ```
-The web application is accessible at `http://localhost:5173`.
+- **Frontend UI:** `http://localhost:5173`
+- **FastAPI Documentation:** `http://localhost:8000/docs`
+- **System Health:** `http://localhost:8000/api/system/health`
 
 ---
 
-## 6. Docker Deployment
-
-To launch the full stack with Docker Compose:
-```bash
-docker compose up --build
-```
-- Frontend: `http://localhost:5173`
-- Backend API: `http://localhost:8000`
-
----
-
-## 7. Running Tests
-
-### Backend Test Suite
-```bash
-PYTHONPATH=. .venv/bin/pytest tests/ -v
-```
-
-### Frontend Production Build Check
-```bash
-cd frontend
-npm run build
-```
-
----
-
-## 8. REST API Reference
+## 5. REST & SSE API Reference
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/` | API status and root metadata |
-| `GET` | `/api/health` | Comprehensive system & Ollama health check |
-| `GET` | `/api/documents` | List all indexed documents with summary statistics |
-| `POST`| `/api/documents/upload` | Upload, validate, extract, and index a PDF file |
-| `GET` | `/api/documents/{doc_id}` | Retrieve document metadata by ID |
-| `GET` | `/api/documents/{doc_id}/file` | Download or stream raw PDF file for viewing |
-| `DELETE` | `/api/documents/{doc_id}` | Delete document and purge vector chunks from ChromaDB |
-| `POST`| `/api/chat/query` | Submit natural language query with strict RAG grounding |
-| `GET` | `/api/chat/suggestions` | Fetch dynamic, contextual question suggestions |
+| `POST` | `/api/auth/register` | Register new user and workspace |
+| `POST` | `/api/auth/login` | Obtain JWT bearer token |
+| `GET` | `/api/documents` | List indexed documents and global statistics |
+| `POST` | `/api/documents/upload` | Upload and vectorize PDF with background queue |
+| `GET` | `/api/documents/{id}/status` | Real-time ingestion stage and progress polling |
+| `POST` | `/api/documents/load-sample` | 1-click curated sample dataset loader |
+| `POST` | `/api/chat/stream` | Server-Sent Events (SSE) token and citation stream |
+| `POST` | `/api/chat/sessions` | Create persistent conversation session |
+| `POST` | `/api/chat/{id}/feedback` | Record user thumbs-up/down message rating |
+| `POST` | `/api/eval/run` | Trigger automated LLM-as-a-judge quality benchmark |
+| `GET` | `/api/system/dashboard-stats`| Consolidated telemetry summary for top strip |
+| `GET` | `/api/system/health` | Live health check with component latency breakdown |
 
 ---
 
-## 9. License
+## 6. Verification & Automated Testing
 
-MIT License. Designed and engineered for institutional document intelligence.
+Run backend test suites:
+```bash
+.venv/bin/pytest tests/
+```
+Verify frontend production build:
+```bash
+cd frontend && npm run build
+```
 
+---
+
+## 7. License
+DocNest is distributed under the MIT License.

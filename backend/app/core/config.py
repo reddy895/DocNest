@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     CHUNK_OVERLAP: int = 64
     RETRIEVAL_TOP_K: int = 5
     MIN_RELEVANCE_SCORE: float = 0.30
+    SIMILARITY_THRESHOLD: float = 0.25
     HYBRID_SEARCH_ENABLED: bool = True
     RERANKER_ENABLED: bool = True
 
