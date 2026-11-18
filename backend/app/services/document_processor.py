@@ -28,3 +28,4 @@ def split_into_chunks(text: str, chunk_size: int = 500, chunk_overlap: int = 50)
     Split text into chunks.
     """
     return split_text_into_semantic_chunks(text, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+

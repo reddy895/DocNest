@@ -22,3 +22,4 @@ def search_documents(query: str, top_k: int = 4) -> Dict[str, Any]:
         return {"documents": [[]], "metadatas": [[]], "distances": [[]]}
     n_results = min(top_k, total)
     return collection.query(query_texts=[query], n_results=n_results)
+

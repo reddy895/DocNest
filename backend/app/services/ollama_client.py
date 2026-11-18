@@ -19,3 +19,4 @@ def generate_answer(prompt: str, model: Optional[str] = None) -> str:
             return asyncio.run(ollama_srv.generate_response(prompt=prompt, model=model))
         except Exception as e:
             return f"Error connecting to Ollama: {e}"
+

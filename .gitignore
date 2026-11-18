@@ -59,6 +59,13 @@ backend/documents/*
 !backend/documents/.gitkeep
 backend/chroma_db/*
 !backend/chroma_db/.gitkeep
+backend/bm25_index/*
+!backend/bm25_index/.gitkeep
+backend/samples/*
+!backend/samples/.gitkeep
+backend/docnest.db*
+*.db
+*.db-journal
 
 # Operating System & IDEs
 .DS_Store
