@@ -219,6 +219,64 @@ class ChromaService:
         results = self.collection.query(**query_kwargs)
         return results
 
+    def query_collection(
+        self,
+        query_text: str,
+        n_results: int = 20,
+        where_filter: Optional[Dict[str, Any]] = None,
+    ) -> List[Any]:
+        """
+        Query ChromaDB with custom where filter and return list of candidate items.
+        """
+        total = self.count()
+        if total == 0:
+            return []
+        effective_k = min(n_results, total)
+        if effective_k <= 0:
+            return []
+
+        kwargs: Dict[str, Any] = {
+            "query_texts": [query_text],
+            "n_results": effective_k,
+            "include": ["documents", "metadatas", "distances"],
+        }
+        if where_filter:
+            kwargs["where"] = where_filter
+
+        try:
+            res = self.collection.query(**kwargs)
+        except Exception as e:
+            logger.warning(f"Chroma query failed with filter {where_filter}: {e}")
+            return []
+
+        docs = res.get("documents", [[]])[0]
+        metas = res.get("metadatas", [[]])[0]
+        dists = res.get("distances", [[]])[0]
+        ids = res.get("ids", [[]])[0]
+
+        from types import SimpleNamespace
+        candidates = []
+        for i, text in enumerate(docs):
+            dist = dists[i] if i < len(dists) else 1.0
+            sim = max(0.0, min(1.0, 1.0 - dist))
+            meta = metas[i] if i < len(metas) else {}
+            cid = ids[i] if i < len(ids) else f"c_{i}"
+            cand = SimpleNamespace(
+                chunk_id=cid,
+                doc_id=str(meta.get("doc_id", "")),
+                filename=str(meta.get("filename", "")),
+                page_number=int(meta.get("page_number", 1)),
+                chunk_index=int(meta.get("chunk_index", i)),
+                text=text,
+                similarity_score=sim,
+                metadata=SimpleNamespace(
+                    section_heading=meta.get("section_heading"),
+                    workspace_id=meta.get("workspace_id", "Default Workspace"),
+                ),
+            )
+            candidates.append(cand)
+        return candidates
+
     def get_relevant_chunks(
         self,
         query_text: str,
