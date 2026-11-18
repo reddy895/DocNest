@@ -17,9 +17,13 @@ logging.basicConfig(
 logger = logging.getLogger("docnest")
 
 
+from backend.app.core.database import db_manager
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting DocNest API service...")
+    await db_manager.init_db()
     yield
     logger.info("Shutting down DocNest API service...")
 
