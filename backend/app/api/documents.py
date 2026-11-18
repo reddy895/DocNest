@@ -6,7 +6,8 @@ from typing import Optional, List
 from fastapi import APIRouter, UploadFile, File, HTTPException, status, Depends, BackgroundTasks, Query
 from fastapi.responses import FileResponse
 
-from backend.app.services.validator import validate_pdf_content
+from backend.app.services.sample_generator import generate_sample_pdfs, settings as sample_settings
+from backend.app.services.validator import validate_pdf_content, compute_sha256
 from backend.app.services.pdf_extractor import extract_pdf_pages
 from backend.app.services.chunker import create_document_chunks
 from backend.app.services.chroma_service import get_chroma_service
@@ -23,6 +24,128 @@ from backend.app.core.database import get_db_connection
 
 logger = logging.getLogger("docnest.api.documents")
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
+
+
+@router.post("/load-sample", response_model=List[DocumentInfo])
+async def load_sample_documents(
+    sample_type: str = Query("all", description="Sample key: financial, ai_whitepaper, compliance, or all")
+):
+    """
+    One-click onboarding: Load, parse, chunk, and index curated enterprise sample PDFs.
+    """
+    generate_sample_pdfs()
+    sample_files = {
+        "financial": ("quarterly_financial_report.pdf", "Quarterly Financial Report Q3.pdf"),
+        "ai_whitepaper": ("ai_architecture_whitepaper.pdf", "Enterprise AI Architecture Whitepaper.pdf"),
+        "compliance": ("compliance_policy_manual.pdf", "Corporate Compliance Policy Manual.pdf"),
+    }
+
+    targets = []
+    if sample_type == "all":
+        targets = list(sample_files.values())
+    elif sample_type in sample_files:
+        targets = [sample_files[sample_type]]
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown sample type '{sample_type}'. Valid choices: {list(sample_files.keys())} or 'all'",
+        )
+
+    results: List[DocumentInfo] = []
+    chroma = get_chroma_service()
+
+    for disk_name, display_name in targets:
+        pdf_path = settings.SAMPLES_DIR / disk_name
+        if not pdf_path.exists():
+            continue
+
+        with open(pdf_path, "rb") as f:
+            content = f.read()
+
+        file_hash = compute_sha256(content)
+        existing_doc = chroma.find_document_by_hash(file_hash)
+        if existing_doc:
+            results.append(
+                DocumentInfo(
+                    doc_id=existing_doc.doc_id,
+                    filename=existing_doc.filename,
+                    file_size_bytes=existing_doc.file_size_bytes,
+                    file_hash=existing_doc.file_hash,
+                    page_count=existing_doc.page_count,
+                    total_chunks=existing_doc.total_chunks,
+                    upload_date=existing_doc.upload_date,
+                    status="ready",
+                    progress_pct=100,
+                    is_scanned=existing_doc.is_scanned,
+                )
+            )
+            continue
+
+        doc_id = f"sample_{uuid.uuid4().hex[:8]}"
+        now_iso = datetime.now(timezone.utc).isoformat()
+        dest_path = settings.DOCUMENTS_DIR / f"{doc_id}.pdf"
+        with open(dest_path, "wb") as f:
+            f.write(content)
+
+        async with get_db_connection() as db:
+            await db.execute(
+                """
+                INSERT INTO documents (
+                    id, user_id, workspace_id, filename, file_hash, file_size_bytes,
+                    page_count, total_chunks, status, progress_pct, error_msg, is_scanned,
+                    tags, file_path, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    doc_id,
+                    "user_default_local",
+                    "Default Workspace",
+                    display_name,
+                    file_hash,
+                    len(content),
+                    1,
+                    1,
+                    "ready",
+                    100,
+                    "",
+                    0,
+                    '["sample"]',
+                    str(dest_path),
+                    now_iso,
+                    now_iso,
+                ),
+            )
+            await db.commit()
+
+        await process_document_ingestion(
+            doc_id=doc_id,
+            file_bytes=content,
+            filename=display_name,
+            file_hash=file_hash,
+            user_id="user_default_local",
+            workspace_id="Default Workspace",
+            chunk_size=settings.CHUNK_SIZE,
+            chunk_overlap=settings.CHUNK_OVERLAP,
+        )
+
+        doc_rec = chroma.find_document_by_id(doc_id)
+        results.append(
+            DocumentInfo(
+                doc_id=doc_id,
+                filename=display_name,
+                file_size_bytes=len(content),
+                file_hash=file_hash,
+                page_count=doc_rec.page_count if doc_rec else 1,
+                total_chunks=doc_rec.total_chunks if doc_rec else 1,
+                upload_date=now_iso,
+                status="ready",
+                progress_pct=100,
+                is_scanned=False,
+                tags=["sample"],
+            )
+        )
+
+    return results
 
 
 @router.get("", response_model=DocumentListResponse)
