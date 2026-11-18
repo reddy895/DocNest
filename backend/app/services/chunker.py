@@ -16,11 +16,49 @@ class DocumentChunk(BaseModel):
     metadata: ChunkMetadata
 
 
-def split_text_into_semantic_chunks(
-    text: str,
-    chunk_size: int = 500,
-    chunk_overlap: int = 60,
-) -> List[str]:
+def split_markdown_into_structured_chunks(
+    markdown_text: str,
+    chunk_size: int = 512,
+    chunk_overlap: int = 64,
+) -> List[tuple[str, Optional[str]]]:
+    """
+    Split markdown text on structural boundaries (headers, paragraphs) while tracking section headings.
+    Returns a list of tuples: (chunk_text, section_heading).
+    """
+    import re
+    if not markdown_text or not markdown_text.strip():
+        return []
+
+    lines = markdown_text.splitlines()
+    sections: List[tuple[Optional[str], List[str]]] = []
+    current_heading = None
+    current_lines: List[str] = []
+
+    for line in lines:
+        header_match = re.match(r'^(#{1,4})\s+(.+)$', line.strip())
+        if header_match:
+            if current_lines:
+                sections.append((current_heading, current_lines))
+                current_lines = []
+            current_heading = header_match.group(2).strip()
+            current_lines.append(line)
+        else:
+            current_lines.append(line)
+
+    if current_lines:
+        sections.append((current_heading, current_lines))
+
+    result_chunks: List[tuple[str, Optional[str]]] = []
+
+    for heading, sec_lines in sections:
+        section_text = "\n".join(sec_lines).strip()
+        if not section_text:
+            continue
+        sub_chunks = split_text_into_semantic_chunks(section_text, chunk_size, chunk_overlap)
+        for sc in sub_chunks:
+            result_chunks.append((sc, heading))
+
+    return result_chunks
     """
     Split text into chunks aiming for chunk_size characters, respecting
     sentence terminators and paragraph breaks with overlapping windows.
@@ -101,31 +139,40 @@ def create_document_chunks(
     pages: List[ExtractedPage],
     chunk_size: int = 500,
     chunk_overlap: int = 60,
+    user_id: str = "user_default_local",
+    workspace_id: str = "Default Workspace",
 ) -> List[DocumentChunk]:
     """
-    Produce page-aware DocumentChunks across all extracted pages.
-    Guarantees page isolation: page numbers are preserved directly on each chunk.
+    Produce page-aware, structure-aware DocumentChunks across all extracted pages.
+    Guarantees page isolation and heading attribution on each chunk.
     """
     raw_chunks_data = []
 
-    # First pass: collect per-page chunks
     for page in pages:
         if page.is_empty or not page.text.strip():
             continue
 
-        page_text_chunks = split_text_into_semantic_chunks(
-            page.text,
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-        )
+        # Check if page has markdown headers or detected headings
+        has_md_headers = bool(re.search(r'^(#{1,4})\s+', page.text, re.MULTILINE))
+        page_heading = page.headings[0] if (hasattr(page, "headings") and page.headings) else None
 
-        for p_idx, chunk_text in enumerate(page_text_chunks):
-            raw_chunks_data.append((page.page_number, p_idx, chunk_text))
+        if has_md_headers:
+            structured = split_markdown_into_structured_chunks(page.text, chunk_size, chunk_overlap)
+            for p_idx, (chunk_text, heading) in enumerate(structured):
+                raw_chunks_data.append((page.page_number, p_idx, chunk_text, heading or page_heading))
+        else:
+            page_text_chunks = split_text_into_semantic_chunks(
+                page.text,
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap,
+            )
+            for p_idx, chunk_text in enumerate(page_text_chunks):
+                raw_chunks_data.append((page.page_number, p_idx, chunk_text, page_heading))
 
     total_chunks = len(raw_chunks_data)
     result_chunks: List[DocumentChunk] = []
 
-    for global_idx, (page_num, p_idx, chunk_text) in enumerate(raw_chunks_data):
+    for global_idx, (page_num, p_idx, chunk_text, heading) in enumerate(raw_chunks_data):
         chunk_id = f"{doc_id}_p{page_num}_c{p_idx}"
         char_count = len(chunk_text)
 
@@ -133,6 +180,9 @@ def create_document_chunks(
             doc_id=doc_id,
             chunk_id=chunk_id,
             filename=filename,
+            user_id=user_id,
+            workspace_id=workspace_id,
+            section_heading=heading,
             page_number=page_num,
             chunk_index=global_idx,
             total_chunks_in_doc=max(1, total_chunks),
