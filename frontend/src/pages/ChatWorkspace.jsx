@@ -27,6 +27,7 @@ import {
   deleteChatSession,
   recordMessageFeedback,
 } from '../services/api';
+import RetrievalInspector from '../components/RetrievalInspector';
 
 export default function ChatWorkspace({
   documents = [],
@@ -599,66 +600,22 @@ export default function ChatWorkspace({
 
       {/* PANE 3: Evidence & Retrieval Inspector Drawer */}
       {evidencePanelOpen && (
-        <div className="w-80 border-l border-silver-border bg-carbon-deep flex flex-col shrink-0 animate-fade-in">
-          <div className="p-3 border-b border-silver-border flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-mono font-bold text-silver-light">
-              <BookOpen className="w-4 h-4 text-signal-yellow" />
-              <span>Evidence Inspector</span>
-            </div>
-            <button
-              onClick={() => setEvidencePanelOpen(false)}
-              className="text-silver-secondary hover:text-silver-light text-xs"
-            >
-              ✕
-            </button>
-          </div>
-
-          <div className="p-4 overflow-y-auto space-y-4 text-xs font-mono">
-            {selectedCitation ? (
-              <div className="space-y-3">
-                <div className="p-3 bg-carbon-surface border border-silver-border rounded-lg space-y-1">
-                  <div className="text-signal-yellow font-bold text-sm">{selectedCitation.filename}</div>
-                  <div className="text-silver-secondary">Page: {selectedCitation.page_number}</div>
-                  <div className="text-emerald-400">Relevance: {Math.round(selectedCitation.relevance_score * 100)}%</div>
-                </div>
-
-                <div className="p-3 bg-carbon-primary border border-silver-border/60 rounded-lg text-silver-light whitespace-pre-wrap font-sans leading-relaxed">
-                  {selectedCitation.content}
-                </div>
-              </div>
-            ) : (
-              <p className="text-silver-secondary italic text-center py-8">
-                Click any citation pill in the chat to inspect its exact source passage.
-              </p>
-            )}
-
-            {/* Retrieval Latency Trace Summary */}
-            {activeTrace && (
-              <div className="pt-3 border-t border-silver-border/60 space-y-2">
-                <span className="text-[10px] uppercase font-bold text-silver-secondary block">
-                  Pipeline Latency Trace:
-                </span>
-                <div className="p-2.5 bg-carbon-surface rounded-lg space-y-1 text-[11px]">
-                  <div className="flex justify-between">
-                    <span className="text-silver-secondary">Query Rewrite:</span>
-                    <span className="text-silver-light">{activeTrace.query_rewriting_ms || 0} ms</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-silver-secondary">Hybrid Retrieval:</span>
-                    <span className="text-silver-light">{activeTrace.retrieval_ms || 0} ms</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-silver-secondary">Reranking:</span>
-                    <span className="text-silver-light">{activeTrace.rerank_ms || 0} ms</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-silver-secondary">Total Response:</span>
-                    <span className="text-signal-yellow font-bold">{activeTrace.total_ms || 0} ms</span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+        <div className="w-80 md:w-96 border-l border-silver-border bg-carbon-deep flex flex-col shrink-0 animate-fade-in overflow-hidden">
+          <RetrievalInspector
+            trace={activeTrace}
+            citations={messages[messages.length - 1]?.citations || []}
+            selectedCitation={selectedCitation}
+            onSelectCitation={(c) => {
+              setSelectedCitation(c);
+              if (onOpenViewer) {
+                const matchedDoc = documents.find((d) => d.filename === c.filename);
+                if (matchedDoc) {
+                  onOpenViewer(matchedDoc, c.page_number, c.content, c.section_heading, c.relevance_score);
+                }
+              }
+            }}
+            onClose={() => setEvidencePanelOpen(false)}
+          />
         </div>
       )}
     </div>
