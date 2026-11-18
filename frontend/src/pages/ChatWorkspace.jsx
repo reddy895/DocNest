@@ -468,7 +468,15 @@ export default function ChatWorkspace({
                 </div>
 
                 {/* Message Body */}
-                <div className="whitespace-pre-wrap">{msg.text || (isLoading && 'Thinking...')}</div>
+                <div className="whitespace-pre-wrap">
+                  {msg.text}
+                  {isLoading && msg.sender === 'assistant' && msg.id === messages[messages.length - 1]?.id && (
+                    <span className="inline-block w-2 h-4 ml-1 bg-signal-yellow animate-pulse align-middle" />
+                  )}
+                  {!msg.text && isLoading && msg.sender === 'assistant' && (
+                    <span className="text-silver-secondary italic text-xs">Analyzing documents & synthesizing response...</span>
+                  )}
+                </div>
 
                 {/* Inline Citations Pills */}
                 {msg.citations && msg.citations.length > 0 && (
