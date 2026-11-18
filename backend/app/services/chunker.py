@@ -16,49 +16,11 @@ class DocumentChunk(BaseModel):
     metadata: ChunkMetadata
 
 
-def split_markdown_into_structured_chunks(
-    markdown_text: str,
-    chunk_size: int = 512,
-    chunk_overlap: int = 64,
-) -> List[tuple[str, Optional[str]]]:
-    """
-    Split markdown text on structural boundaries (headers, paragraphs) while tracking section headings.
-    Returns a list of tuples: (chunk_text, section_heading).
-    """
-    import re
-    if not markdown_text or not markdown_text.strip():
-        return []
-
-    lines = markdown_text.splitlines()
-    sections: List[tuple[Optional[str], List[str]]] = []
-    current_heading = None
-    current_lines: List[str] = []
-
-    for line in lines:
-        header_match = re.match(r'^(#{1,4})\s+(.+)$', line.strip())
-        if header_match:
-            if current_lines:
-                sections.append((current_heading, current_lines))
-                current_lines = []
-            current_heading = header_match.group(2).strip()
-            current_lines.append(line)
-        else:
-            current_lines.append(line)
-
-    if current_lines:
-        sections.append((current_heading, current_lines))
-
-    result_chunks: List[tuple[str, Optional[str]]] = []
-
-    for heading, sec_lines in sections:
-        section_text = "\n".join(sec_lines).strip()
-        if not section_text:
-            continue
-        sub_chunks = split_text_into_semantic_chunks(section_text, chunk_size, chunk_overlap)
-        for sc in sub_chunks:
-            result_chunks.append((sc, heading))
-
-    return result_chunks
+def split_text_into_semantic_chunks(
+    text: str,
+    chunk_size: int = 500,
+    chunk_overlap: int = 60,
+) -> List[str]:
     """
     Split text into chunks aiming for chunk_size characters, respecting
     sentence terminators and paragraph breaks with overlapping windows.
@@ -130,6 +92,51 @@ def split_markdown_into_structured_chunks(
         chunks.append(" ".join(current_chunk))
 
     return [c for c in chunks if c.strip()]
+
+
+def split_markdown_into_structured_chunks(
+    markdown_text: str,
+    chunk_size: int = 512,
+    chunk_overlap: int = 64,
+) -> List[tuple[str, Optional[str]]]:
+    """
+    Split markdown text on structural boundaries (headers, paragraphs) while tracking section headings.
+    Returns a list of tuples: (chunk_text, section_heading).
+    """
+    import re
+    if not markdown_text or not markdown_text.strip():
+        return []
+
+    lines = markdown_text.splitlines()
+    sections: List[tuple[Optional[str], List[str]]] = []
+    current_heading = None
+    current_lines: List[str] = []
+
+    for line in lines:
+        header_match = re.match(r'^(#{1,4})\s+(.+)$', line.strip())
+        if header_match:
+            if current_lines:
+                sections.append((current_heading, current_lines))
+                current_lines = []
+            current_heading = header_match.group(2).strip()
+            current_lines.append(line)
+        else:
+            current_lines.append(line)
+
+    if current_lines:
+        sections.append((current_heading, current_lines))
+
+    result_chunks: List[tuple[str, Optional[str]]] = []
+
+    for heading, sec_lines in sections:
+        section_text = "\n".join(sec_lines).strip()
+        if not section_text:
+            continue
+        sub_chunks = split_text_into_semantic_chunks(section_text, chunk_size, chunk_overlap)
+        for sc in sub_chunks:
+            result_chunks.append((sc, heading))
+
+    return result_chunks
 
 
 def create_document_chunks(
