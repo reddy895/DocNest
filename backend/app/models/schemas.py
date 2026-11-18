@@ -76,6 +76,38 @@ class Citation(BaseModel):
     relevance_score: float = Field(ge=0.0, le=1.0)
 
 
+class CreateSessionRequest(BaseModel):
+    title: Optional[str] = "New Conversation"
+
+
+class ChatSessionInfo(BaseModel):
+    id: str
+    user_id: str
+    workspace_id: str
+    title: str
+    created_at: str
+    updated_at: str
+    message_count: int = 0
+
+
+class ChatMessageInfo(BaseModel):
+    id: str
+    session_id: str
+    user_id: str
+    sender: str
+    text: str
+    citations: List[Dict[str, Any]] = Field(default_factory=list)
+    retrieval_trace: Dict[str, Any] = Field(default_factory=dict)
+    feedback_rating: Optional[int] = None
+    feedback_comment: Optional[str] = None
+    created_at: str
+
+
+class FeedbackRequest(BaseModel):
+    rating: int = Field(ge=-1, le=1)  # 1 for up, -1 for down, 0 for neutral
+    comment: Optional[str] = None
+
+
 class ChatQueryRequest(BaseModel):
     """Incoming user question request."""
     question: str = Field(min_length=1, max_length=2000)

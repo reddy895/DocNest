@@ -5,7 +5,19 @@ from typing import Optional, List, Dict, Any, AsyncGenerator
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
 
-from backend.app.models.schemas import ChatQueryRequest, ChatQueryResponse, StreamChatRequest, Citation
+import uuid
+from datetime import datetime, timezone
+from backend.app.models.schemas import (
+    ChatQueryRequest,
+    ChatQueryResponse,
+    StreamChatRequest,
+    Citation,
+    CreateSessionRequest,
+    ChatSessionInfo,
+    ChatMessageInfo,
+    FeedbackRequest,
+)
+from backend.app.core.database import get_db_connection
 from backend.app.services.rag_service import get_rag_service, format_grounded_prompt, SYSTEM_GROUNDING_PROMPT
 from backend.app.services.retrieval_service import get_retriever
 from backend.app.services.reranker_service import get_reranker
@@ -121,9 +133,160 @@ async def stream_chat(request: StreamChatRequest):
         trace["total_ms"] = round((time.time() - start_time) * 1000, 2)
         full_text = "".join(accumulated_text)
 
+        # Persist messages to SQLite session if session_id provided
+        if request.session_id:
+            try:
+                now_iso = datetime.now(timezone.utc).isoformat()
+                async with get_db_connection() as db:
+                    # User turn
+                    u_msg_id = f"msg_{uuid.uuid4().hex[:12]}"
+                    await db.execute(
+                        """
+                        INSERT INTO chat_messages (id, session_id, user_id, sender, text, citations, retrieval_trace, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (u_msg_id, request.session_id, "user_default_local", "user", request.question, "[]", "{}", now_iso),
+                    )
+                    # Assistant turn
+                    a_msg_id = f"msg_{uuid.uuid4().hex[:12]}"
+                    await db.execute(
+                        """
+                        INSERT INTO chat_messages (id, session_id, user_id, sender, text, citations, retrieval_trace, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            a_msg_id,
+                            request.session_id,
+                            "user_default_local",
+                            "assistant",
+                            full_text,
+                            json.dumps(citation_payloads),
+                            json.dumps(trace),
+                            now_iso,
+                        ),
+                    )
+                    await db.execute(
+                        "UPDATE chat_sessions SET updated_at = ? WHERE id = ?",
+                        (now_iso, request.session_id),
+                    )
+                    await db.commit()
+            except Exception as db_err:
+                logger.warning(f"Failed to persist chat session messages: {db_err}")
+
         yield f"data: {json.dumps({'event': 'done', 'full_text': full_text, 'is_grounded': True, 'tokens': token_count, 'trace': trace})}\n\n"
 
     return StreamingResponse(sse_event_generator(), media_type="text/event-stream")
+
+
+@router.post("/sessions", response_model=ChatSessionInfo)
+async def create_chat_session(payload: CreateSessionRequest):
+    """Create a new chat session."""
+    session_id = f"sess_{uuid.uuid4().hex[:12]}"
+    now_iso = datetime.now(timezone.utc).isoformat()
+    title = payload.title or "New Conversation"
+
+    async with get_db_connection() as db:
+        await db.execute(
+            """
+            INSERT INTO chat_sessions (id, user_id, workspace_id, title, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (session_id, "user_default_local", "Default Workspace", title, now_iso, now_iso),
+        )
+        await db.commit()
+
+    return ChatSessionInfo(
+        id=session_id,
+        user_id="user_default_local",
+        workspace_id="Default Workspace",
+        title=title,
+        created_at=now_iso,
+        updated_at=now_iso,
+        message_count=0,
+    )
+
+
+@router.get("/sessions", response_model=List[ChatSessionInfo])
+async def list_chat_sessions():
+    """List all chat sessions ordered by latest activity."""
+    async with get_db_connection() as db:
+        cursor = await db.execute(
+            """
+            SELECT s.id, s.user_id, s.workspace_id, s.title, s.created_at, s.updated_at,
+                   COUNT(m.id) as msg_count
+            FROM chat_sessions s
+            LEFT JOIN chat_messages m ON s.id = m.session_id
+            WHERE s.user_id = 'user_default_local'
+            GROUP BY s.id
+            ORDER BY s.updated_at DESC
+            """
+        )
+        rows = await cursor.fetchall()
+        return [
+            ChatSessionInfo(
+                id=r["id"],
+                user_id=r["user_id"],
+                workspace_id=r["workspace_id"],
+                title=r["title"],
+                created_at=r["created_at"],
+                updated_at=r["updated_at"],
+                message_count=r["msg_count"],
+            )
+            for r in rows
+        ]
+
+
+@router.get("/sessions/{session_id}/messages", response_model=List[ChatMessageInfo])
+async def get_session_messages(session_id: str):
+    """Retrieve full chronological message history for a chat session."""
+    async with get_db_connection() as db:
+        cursor = await db.execute(
+            """
+            SELECT id, session_id, user_id, sender, text, citations, retrieval_trace,
+                   feedback_rating, feedback_comment, created_at
+            FROM chat_messages
+            WHERE session_id = ?
+            ORDER BY created_at ASC
+            """,
+            (session_id,),
+        )
+        rows = await cursor.fetchall()
+        messages = []
+        for r in rows:
+            try:
+                cites = json.loads(r["citations"])
+            except Exception:
+                cites = []
+            try:
+                trace = json.loads(r["retrieval_trace"])
+            except Exception:
+                trace = {}
+
+            messages.append(
+                ChatMessageInfo(
+                    id=r["id"],
+                    session_id=r["session_id"],
+                    user_id=r["user_id"],
+                    sender=r["sender"],
+                    text=r["text"],
+                    citations=cites,
+                    retrieval_trace=trace,
+                    feedback_rating=r["feedback_rating"],
+                    feedback_comment=r["feedback_comment"],
+                    created_at=r["created_at"],
+                )
+            )
+        return messages
+
+
+@router.delete("/sessions/{session_id}")
+async def delete_chat_session(session_id: str):
+    """Delete a chat session and all associated messages."""
+    async with get_db_connection() as db:
+        await db.execute("DELETE FROM chat_messages WHERE session_id = ?", (session_id,))
+        await db.execute("DELETE FROM chat_sessions WHERE id = ?", (session_id,))
+        await db.commit()
+    return {"success": True, "session_id": session_id, "message": "Session deleted successfully"}
 
 
 @router.post("/query", response_model=ChatQueryResponse)
