@@ -12,6 +12,13 @@ class ValidationResult(BaseModel):
     warning: Optional[str] = None
 
 
+class DocumentUpdateRequest(BaseModel):
+    """Payload to update document metadata and tags."""
+    filename: Optional[str] = None
+    tags: Optional[List[str]] = None
+    workspace_id: Optional[str] = None
+
+
 class DocumentInfo(BaseModel):
     """Metadata for an uploaded document."""
     doc_id: str

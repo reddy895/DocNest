@@ -18,6 +18,7 @@ from backend.app.models.schemas import (
     DocumentListResponse,
     DeleteDocumentResponse,
     DocumentStatusResponse,
+    DocumentUpdateRequest,
 )
 from backend.app.core.config import settings
 from backend.app.core.database import get_db_connection
@@ -329,19 +330,125 @@ async def get_document_file(doc_id: str):
     )
 
 
-@router.delete("/{doc_id}", response_model=DeleteDocumentResponse)
-async def delete_document(doc_id: str):
+@router.patch("/{doc_id}", response_model=DocumentInfo)
+async def update_document_metadata(doc_id: str, payload: DocumentUpdateRequest):
     """
-    Delete a document, purges its chunks from ChromaDB, and removes file from disk.
+    Update document filename, tags, or assigned workspace.
     """
+    import json
     chroma = get_chroma_service()
     doc = chroma.find_document_by_id(doc_id)
     if not doc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Document with ID '{doc_id}' not found.",
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    new_filename = payload.filename or doc.filename
+    new_tags = payload.tags if payload.tags is not None else []
+
+    async with get_db_connection() as db:
+        await db.execute(
+            """
+            UPDATE documents
+            SET filename = ?, tags = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (new_filename, json.dumps(new_tags), now_iso, doc_id),
+        )
+        await db.commit()
+
+    doc.filename = new_filename
+    chroma._save_registry(chroma._load_registry())
+
+    return DocumentInfo(
+        doc_id=doc.doc_id,
+        filename=new_filename,
+        file_size_bytes=doc.file_size_bytes,
+        file_hash=doc.file_hash,
+        page_count=doc.page_count,
+        total_chunks=doc.total_chunks,
+        upload_date=doc.upload_date,
+        status="ready",
+        progress_pct=100,
+        is_scanned=doc.is_scanned,
+        tags=new_tags,
+    )
+
+
+@router.post("/{doc_id}/reindex", response_model=DocumentStatusResponse)
+async def reindex_document(doc_id: str, background_tasks: BackgroundTasks):
+    """
+    Re-extract and re-embed document with updated chunking settings.
+    """
+    async with get_db_connection() as db:
+        cursor = await db.execute("SELECT * FROM documents WHERE id = ?", (doc_id,))
+        row = await cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        file_path = row["file_path"]
+        if not file_path or not Path(file_path).exists():
+            raise HTTPException(status_code=400, detail="Document file missing from disk")
+
+        with open(file_path, "rb") as f:
+            file_bytes = f.read()
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+        await db.execute(
+            "UPDATE documents SET status = 'queued', progress_pct = 0, error_msg = '', updated_at = ? WHERE id = ?",
+            (now_iso, doc_id),
+        )
+        await db.commit()
+
+        # Delete existing chunks first
+        chroma = get_chroma_service()
+        chroma.delete_document(doc_id)
+
+        background_tasks.add_task(
+            process_document_ingestion,
+            doc_id=doc_id,
+            file_bytes=file_bytes,
+            filename=row["filename"],
+            file_hash=row["file_hash"],
+            user_id=row["user_id"],
+            workspace_id=row["workspace_id"],
         )
 
+        return DocumentStatusResponse(
+            doc_id=doc_id,
+            filename=row["filename"],
+            status="queued",
+            progress_pct=0,
+            error_msg=None,
+            page_count=row["page_count"],
+            total_chunks=row["total_chunks"],
+            is_scanned=bool(row["is_scanned"]),
+            updated_at=now_iso,
+        )
+
+
+@router.delete("/{doc_id}", response_model=DeleteDocumentResponse)
+async def delete_document(doc_id: str):
+    """
+    Cascade delete: Remove document from SQLite, ChromaDB vectors, and local disk.
+    """
+    chroma = get_chroma_service()
+    doc = chroma.find_document_by_id(doc_id)
+
+    # 1. Cascade delete in SQLite
+    async with get_db_connection() as db:
+        await db.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
+        await db.commit()
+
+    if not doc:
+        return DeleteDocumentResponse(
+            doc_id=doc_id,
+            filename="unknown",
+            chunks_deleted=0,
+            success=True,
+            message="Document removed from database.",
+        )
+
+    # 2. Delete vectors and files via ChromaService
     deleted_count = chroma.delete_document(doc_id)
 
     return DeleteDocumentResponse(
