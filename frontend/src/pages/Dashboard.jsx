@@ -18,6 +18,7 @@ import {
 import { fetchDashboardStats, fetchChatSessions } from '../services/api';
 
 import PipelineControlPanel from '../components/PipelineControlPanel';
+import SampleDatasetCards from '../components/SampleDatasetCards';
 
 export default function Dashboard({
   documents = [],
@@ -165,15 +166,20 @@ export default function Dashboard({
           </div>
 
           {recentDocs.length === 0 ? (
-            <div className="border border-dashed border-silver-border rounded-xl p-8 text-center bg-carbon-primary">
-              <UploadCloud className="w-8 h-8 text-silver-secondary mx-auto mb-2 opacity-50" />
-              <p className="text-sm text-silver-primary font-medium mb-1">No documents uploaded yet</p>
-              <p className="text-xs text-silver-secondary mb-4">
-                Upload institutional PDFs or load one-click curated sample datasets to start asking questions.
-              </p>
-              <button onClick={onOpenUpload} className="px-4 py-2 bg-signal-yellow text-carbon-deep font-semibold rounded-lg text-xs">
-                Upload First PDF
-              </button>
+            <div className="space-y-6">
+              <div className="border border-dashed border-silver-border rounded-xl p-8 text-center bg-carbon-primary">
+                <UploadCloud className="w-8 h-8 text-silver-secondary mx-auto mb-2 opacity-50" />
+                <p className="text-sm text-silver-primary font-medium mb-1">No documents uploaded yet</p>
+                <p className="text-xs text-silver-secondary mb-4">
+                  Upload your documents or initialize with curated enterprise datasets below.
+                </p>
+                <button onClick={onOpenUpload} className="px-4 py-2 bg-signal-yellow text-carbon-deep font-semibold rounded-lg text-xs">
+                  Upload First PDF
+                </button>
+              </div>
+
+              {/* 1-Click Sample Dataset Cards */}
+              <SampleDatasetCards onSampleLoaded={() => window.location.reload()} />
             </div>
           ) : (
             <div className="divide-y divide-silver-border/40">
