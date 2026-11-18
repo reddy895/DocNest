@@ -30,6 +30,19 @@ class DocumentInfo(BaseModel):
     tags: List[str] = Field(default_factory=list)
 
 
+class DocumentStatusResponse(BaseModel):
+    """Real-time processing status of an ingestion job."""
+    doc_id: str
+    filename: str
+    status: str
+    progress_pct: int
+    error_msg: Optional[str] = None
+    page_count: int
+    total_chunks: int
+    is_scanned: bool
+    updated_at: str
+
+
 class DocumentListResponse(BaseModel):
     """Response containing list of documents and summary statistics."""
     total_documents: int
