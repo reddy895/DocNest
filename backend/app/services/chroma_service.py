@@ -78,7 +78,14 @@ class ChromaService:
                     metadatas=metadatas[i : i + batch_size],
                 )
 
-        # 3. Update persistent registry
+        # 3. Synchronize with BM25 sparse index
+        try:
+            from backend.app.services.bm25_service import get_bm25_service
+            get_bm25_service().add_chunks(chunks)
+        except Exception as bm_err:
+            logger.warning(f"BM25 sync failed for doc {doc_record.doc_id}: {bm_err}")
+
+        # 4. Update persistent registry
         registry = self._load_registry()
         registry[doc_record.doc_id] = doc_record.to_dict()
         self._save_registry(registry)
@@ -134,7 +141,14 @@ class ChromaService:
         except Exception as e:
             logger.error(f"Error deleting chunks from ChromaDB for doc_id='{doc_id}': {e}")
 
-        # 2. Delete file from disk
+        # 2. Synchronize removal in BM25 index
+        try:
+            from backend.app.services.bm25_service import get_bm25_service
+            get_bm25_service().remove_document(doc_id)
+        except Exception as bm_err:
+            logger.warning(f"BM25 delete sync failed for doc {doc_id}: {bm_err}")
+
+        # 3. Delete file from disk
         if file_path_str:
             p = Path(file_path_str)
             if p.exists():
