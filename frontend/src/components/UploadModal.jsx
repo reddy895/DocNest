@@ -7,12 +7,25 @@ import {
   CheckCircle2,
   Loader2,
   AlertTriangle,
+  Tag,
+  RefreshCw,
 } from 'lucide-react';
+import { uploadDocumentFile } from '../services/api';
+
+const STAGES = [
+  { id: 'validating', label: 'Validating PDF Format', pct: 20 },
+  { id: 'parsing', label: 'Docling Layout Parsing', pct: 45 },
+  { id: 'chunking', label: 'Structure-Aware Chunking', pct: 70 },
+  { id: 'embedding', label: 'ChromaDB & BM25 Vectorization', pct: 90 },
+  { id: 'ready', label: 'Ready & Indexed', pct: 100 },
+];
 
 export default function UploadModal({ isOpen, onClose, onUploadSuccess }) {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [tagsInput, setTagsInput] = useState('');
   const [uploadStatus, setUploadStatus] = useState('idle'); // idle | uploading | success | error
+  const [currentStageIdx, setCurrentStageIdx] = useState(0);
   const [statusMessage, setStatusMessage] = useState('');
   const [resultData, setResultData] = useState(null);
   const fileInputRef = useRef(null);
@@ -74,207 +87,241 @@ export default function UploadModal({ isOpen, onClose, onUploadSuccess }) {
     if (!selectedFile) return;
 
     setUploadStatus('uploading');
-    setStatusMessage('Validating PDF and extracting text page-by-page...');
+    setCurrentStageIdx(0);
+    setStatusMessage('Validating PDF magic bytes...');
 
-    const formData = new FormData();
-    formData.append('file', selectedFile);
+    // Simulate stage progress animation while server computes
+    const timer1 = setTimeout(() => {
+      setCurrentStageIdx(1);
+      setStatusMessage('Docling converting PDF layout into structured Markdown...');
+    }, 600);
+
+    const timer2 = setTimeout(() => {
+      setCurrentStageIdx(2);
+      setStatusMessage('Splitting semantic chunks on headings with overlap...');
+    }, 1400);
+
+    const timer3 = setTimeout(() => {
+      setCurrentStageIdx(3);
+      setStatusMessage('Computing nomic-embed-text vectors & updating BM25 index...');
+    }, 2400);
 
     try {
-      const response = await fetch('/api/documents/upload', {
-        method: 'POST',
-        body: formData,
-      });
+      const data = await uploadDocumentFile(selectedFile, false);
 
-      const data = await response.json();
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
 
-      if (!response.ok) {
-        throw new Error(data.detail || 'Upload failed');
-      }
-
+      setCurrentStageIdx(4);
       setResultData(data);
       setUploadStatus('success');
       setStatusMessage(
         data.status === 'already_indexed'
           ? 'Identical document already indexed in repository.'
-          : `Successfully indexed ${data.page_count} pages and generated ${data.total_chunks} vector chunks.`
+          : `Successfully indexed ${data.page_count} pages and created ${data.total_chunks} vector chunks.`
       );
 
-      if (onUploadSuccess) {
-        onUploadSuccess(data);
-      }
+      if (onUploadSuccess) onUploadSuccess(data);
     } catch (err) {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
       setUploadStatus('error');
-      setStatusMessage(err.message || 'An unexpected error occurred during upload.');
+      setStatusMessage(err.message || 'Ingestion pipeline failed.');
     }
   };
 
-  const resetForm = () => {
+  const resetModal = () => {
     setSelectedFile(null);
     setUploadStatus('idle');
+    setCurrentStageIdx(0);
     setStatusMessage('');
     setResultData(null);
+    setTagsInput('');
+  };
+
+  const handleClose = () => {
+    resetModal();
+    onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-      <div className="carbon-card max-w-lg w-full p-6 shadow-carbon-lg relative">
-        <button
-          onClick={onClose}
-          className="absolute right-4 top-4 text-[#969DA3] hover:text-[#E0E3E5] p-1"
-        >
-          <X className="w-5 h-5" />
-        </button>
-
-        <h3 className="text-lg font-bold text-[#E0E3E5] mb-1">Upload Document</h3>
-        <p className="text-xs text-[#969DA3] mb-4">
-          Ingest institutional PDF files for semantic indexing and grounded RAG querying.
-        </p>
-
-        {/* Dropzone */}
-        {uploadStatus !== 'success' && (
-          <div
-            onDragEnter={handleDrag}
-            onDragLeave={handleDrag}
-            onDragOver={handleDrag}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-              dragActive
-                ? 'border-[#F4D21F] bg-[#F4D21F]/5'
-                : 'border-[#555C61] hover:border-[#969DA3] bg-[#171A1C]'
-            }`}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,application/pdf"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            <UploadCloud className="w-10 h-10 text-[#F4D21F] mx-auto mb-3" />
-            <p className="text-sm font-medium text-[#E0E3E5] mb-1">
-              Drag and drop your PDF here, or browse
-            </p>
-            <p className="text-xs text-[#969DA3]">
-              PDF format up to 50MB • Strict page-aware extraction
-            </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-carbon-deep/80 backdrop-blur-sm animate-fade-in">
+      <div className="relative w-full max-w-lg p-6 bg-carbon-surface border border-silver-border rounded-xl shadow-carbon-lg">
+        {/* Header */}
+        <div className="flex items-center justify-between pb-4 border-b border-silver-border">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-carbon-primary border border-silver-border flex items-center justify-center text-signal-yellow">
+              <UploadCloud className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-silver-light">Upload PDF Document</h3>
+              <p className="text-xs text-silver-secondary">Layout-aware IBM Docling & Hybrid RAG Ingestion</p>
+            </div>
           </div>
-        )}
+          <button
+            onClick={handleClose}
+            className="p-1.5 text-silver-secondary hover:text-silver-light rounded-lg hover:bg-carbon-secondary transition"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-        {/* Selected File Banner */}
-        {selectedFile && uploadStatus !== 'success' && (
-          <div className="mt-4 p-3 bg-[#171A1C] border border-[#555C61] rounded-md flex items-center justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <FileText className="w-5 h-5 text-[#F4D21F] shrink-0" />
-              <div className="min-w-0">
-                <div className="text-xs font-medium text-[#E0E3E5] truncate">
-                  {selectedFile.name}
-                </div>
-                <div className="text-[11px] text-[#969DA3] font-mono">
-                  {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+        {/* Modal Body */}
+        <div className="py-5 space-y-4">
+          {uploadStatus === 'idle' && (
+            <>
+              {/* Dropzone */}
+              <div
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition ${
+                  dragActive
+                    ? 'border-signal-yellow bg-carbon-primary'
+                    : 'border-silver-border hover:border-silver-primary bg-carbon-deep/50'
+                }`}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                <FileText className="w-10 h-10 text-signal-yellow mx-auto mb-3" />
+                <p className="text-sm font-semibold text-silver-light mb-1">
+                  {selectedFile ? selectedFile.name : 'Click to select or drag and drop PDF'}
+                </p>
+                <p className="text-xs text-silver-secondary">
+                  Supports research papers, earnings reports, manuals up to 50MB
+                </p>
+              </div>
+
+              {/* Tags Input */}
+              <div>
+                <label className="block text-xs font-medium text-silver-primary mb-1">
+                  Metadata Tags (Optional, comma-separated)
+                </label>
+                <div className="relative">
+                  <Tag className="absolute left-3 top-2.5 w-4 h-4 text-silver-secondary" />
+                  <input
+                    type="text"
+                    value={tagsInput}
+                    onChange={(e) => setTagsInput(e.target.value)}
+                    placeholder="finance, q3, compliance"
+                    className="w-full pl-9 pr-3 py-2 text-xs bg-carbon-primary border border-silver-border rounded-lg text-silver-light placeholder-silver-secondary/50 focus:border-signal-yellow focus:outline-none"
+                  />
                 </div>
               </div>
-            </div>
-            {uploadStatus === 'idle' && (
-              <button
-                onClick={resetForm}
-                className="text-xs text-[#969DA3] hover:text-[#E0E3E5] ml-2"
-              >
-                Change
-              </button>
-            )}
-          </div>
-        )}
+            </>
+          )}
 
-        {/* Upload Status / Progress States */}
-        {uploadStatus === 'uploading' && (
-          <div className="mt-4 p-4 bg-[#171A1C] border border-[#F4D21F]/40 rounded-md">
-            <div className="flex items-center gap-3 mb-2">
-              <Loader2 className="w-4 h-4 text-[#F4D21F] animate-spin" />
-              <span className="text-xs font-medium text-[#E0E3E5]">
-                Processing & Vectorizing Document...
-              </span>
-            </div>
-            <div className="w-full bg-[#303538] h-1.5 rounded-full overflow-hidden">
-              <div className="bg-[#F4D21F] h-full w-2/3 animate-pulse rounded-full"></div>
-            </div>
-            <p className="text-[11px] text-[#969DA3] mt-2 font-mono">{statusMessage}</p>
-          </div>
-        )}
+          {/* Uploading Stage Progress */}
+          {uploadStatus === 'uploading' && (
+            <div className="p-6 bg-carbon-primary border border-silver-border rounded-xl space-y-4">
+              <div className="flex items-center justify-between text-xs font-mono">
+                <span className="text-signal-yellow font-bold uppercase">{STAGES[currentStageIdx].label}</span>
+                <span className="text-silver-secondary">{STAGES[currentStageIdx].pct}%</span>
+              </div>
 
-        {uploadStatus === 'error' && (
-          <div className="mt-4 p-3 bg-rose-950/40 border border-rose-500/50 rounded-md flex items-start gap-2.5 text-xs text-rose-300">
-            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
-            <div>
-              <span className="font-semibold block">Processing Failed</span>
-              <span>{statusMessage}</span>
-            </div>
-          </div>
-        )}
+              {/* Progress Bar */}
+              <div className="w-full bg-carbon-deep h-2 rounded-full overflow-hidden border border-silver-border/40">
+                <div
+                  className="bg-signal-yellow h-full transition-all duration-500 ease-out"
+                  style={{ width: `${STAGES[currentStageIdx].pct}%` }}
+                />
+              </div>
 
-        {uploadStatus === 'success' && resultData && (
-          <div className="space-y-4 py-2">
-            <div className="p-4 bg-emerald-950/30 border border-emerald-500/40 rounded-md text-xs">
-              <div className="flex items-center gap-2 text-emerald-400 font-semibold mb-1">
-                <CheckCircle2 className="w-4 h-4" />
+              <div className="flex items-center gap-2 text-xs text-silver-secondary pt-1">
+                <Loader2 className="w-4 h-4 animate-spin text-signal-yellow shrink-0" />
+                <span>{statusMessage}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Success Result */}
+          {uploadStatus === 'success' && (
+            <div className="p-5 bg-emerald-950/30 border border-emerald-800/60 rounded-xl space-y-3">
+              <div className="flex items-center gap-2.5 text-emerald-400 font-semibold text-sm">
+                <CheckCircle2 className="w-5 h-5" />
                 <span>Document Ingestion Complete</span>
               </div>
-              <p className="text-[#BFC3C7] text-xs mb-3">{statusMessage}</p>
+              <p className="text-xs text-silver-primary">{statusMessage}</p>
 
-              <div className="grid grid-cols-2 gap-2 font-mono text-[11px] bg-[#171A1C] p-2.5 rounded border border-[#555C61]">
-                <div>
-                  <span className="text-[#969DA3]">Pages:</span>{' '}
-                  <span className="text-[#E0E3E5]">{resultData.page_count}</span>
+              {resultData && (
+                <div className="grid grid-cols-3 gap-2 pt-2 text-center text-xs font-mono bg-carbon-deep/60 p-2.5 rounded-lg border border-silver-border/40">
+                  <div>
+                    <span className="text-silver-secondary block text-[10px]">PAGES</span>
+                    <span className="text-silver-light font-bold">{resultData.page_count}</span>
+                  </div>
+                  <div>
+                    <span className="text-silver-secondary block text-[10px]">CHUNKS</span>
+                    <span className="text-signal-yellow font-bold">{resultData.total_chunks}</span>
+                  </div>
+                  <div>
+                    <span className="text-silver-secondary block text-[10px]">STATUS</span>
+                    <span className="text-emerald-400 font-bold uppercase">{resultData.status}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[#969DA3]">Chunks:</span>{' '}
-                  <span className="text-[#E0E3E5]">{resultData.total_chunks}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => {
-                  resetForm();
-                  onClose();
-                }}
-                className="btn-primary text-xs py-1.5 px-4"
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Modal Actions */}
-        {uploadStatus !== 'success' && (
-          <div className="flex justify-end gap-2 mt-5">
-            <button
-              onClick={onClose}
-              disabled={uploadStatus === 'uploading'}
-              className="btn-secondary text-xs py-1.5 px-3"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={executeUpload}
-              disabled={!selectedFile || uploadStatus === 'uploading'}
-              className="btn-primary text-xs py-1.5 px-4"
-            >
-              {uploadStatus === 'uploading' ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Processing...</span>
-                </>
-              ) : (
-                <span>Start Indexing</span>
               )}
+            </div>
+          )}
+
+          {/* Error Message */}
+          {uploadStatus === 'error' && (
+            <div className="p-4 bg-red-950/30 border border-red-800/60 rounded-xl space-y-2">
+              <div className="flex items-center gap-2 text-red-400 font-semibold text-sm">
+                <AlertCircle className="w-5 h-5" />
+                <span>Ingestion Error</span>
+              </div>
+              <p className="text-xs text-silver-primary">{statusMessage}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Modal Footer */}
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-silver-border">
+          {uploadStatus === 'idle' && (
+            <>
+              <button
+                onClick={handleClose}
+                className="px-4 py-2 text-xs font-semibold text-silver-secondary hover:text-silver-light transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeUpload}
+                disabled={!selectedFile}
+                className="px-4 py-2 bg-signal-yellow hover:bg-signal-hover text-carbon-deep text-xs font-semibold rounded-lg shadow-carbon-sm transition disabled:opacity-40"
+              >
+                Process & Vectorize PDF
+              </button>
+            </>
+          )}
+
+          {uploadStatus === 'success' && (
+            <button
+              onClick={handleClose}
+              className="px-4 py-2 bg-signal-yellow hover:bg-signal-hover text-carbon-deep text-xs font-semibold rounded-lg shadow-carbon-sm transition"
+            >
+              Done & View Library
             </button>
-          </div>
-        )}
+          )}
+
+          {uploadStatus === 'error' && (
+            <button
+              onClick={() => setUploadStatus('idle')}
+              className="px-4 py-2 bg-carbon-primary border border-silver-border hover:border-signal-yellow text-silver-light text-xs font-semibold rounded-lg transition"
+            >
+              Try Again
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
 }
-
