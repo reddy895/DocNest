@@ -1,6 +1,7 @@
 import aiosqlite
 import logging
 from pathlib import Path
+from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from backend.app.core.config import settings
 
@@ -125,3 +126,13 @@ db_manager = DatabaseManager(settings.DB_PATH)
 async def get_db() -> AsyncGenerator[aiosqlite.Connection, None]:
     async for conn in db_manager.get_db():
         yield conn
+
+
+@asynccontextmanager
+async def get_db_connection() -> AsyncGenerator[aiosqlite.Connection, None]:
+    """Helper async context manager for background workers and services."""
+    async with aiosqlite.connect(settings.DB_PATH) as conn:
+        conn.row_factory = aiosqlite.Row
+        await conn.execute("PRAGMA foreign_keys = ON;")
+        yield conn
+
