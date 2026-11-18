@@ -2,6 +2,7 @@ import time
 import httpx
 from fastapi import APIRouter
 from backend.app.core.config import settings
+from backend.app.core.telemetry import telemetry
 
 router = APIRouter(prefix="/api/system", tags=["System"])
 
@@ -73,3 +74,11 @@ async def get_system_health():
             },
         },
     }
+
+
+@router.get("/telemetry")
+async def get_system_telemetry():
+    """
+    Get aggregate RAG operational telemetry including retrieval latency and feedback.
+    """
+    return telemetry.get_summary()
