@@ -90,6 +90,47 @@ def extract_pdf_with_docling(file_bytes: bytes, filename: str) -> Optional[Extra
         return None
 
 
+def detect_and_format_tables(text: str) -> tuple[str, List[str]]:
+    """
+    Detect multi-column table patterns in text extracted from PDFs and convert them
+    into Markdown table strings. Returns modified text and list of extracted markdown tables.
+    """
+    import re
+    lines = text.splitlines()
+    table_candidates = []
+    current_table = []
+    tables_found = []
+
+    for line in lines:
+        stripped = line.strip()
+        # Look for lines with multiple items separated by 2+ spaces or tabs
+        parts = [p.strip() for p in re.split(r'\t+|\s{2,}', stripped) if p.strip()]
+        if len(parts) >= 2 and len(stripped) > 8:
+            current_table.append(parts)
+        else:
+            if len(current_table) >= 2:
+                # Format as markdown table
+                num_cols = max(len(row) for row in current_table)
+                norm_rows = [row + [""] * (num_cols - len(row)) for row in current_table]
+                header = "| " + " | ".join(norm_rows[0]) + " |"
+                sep = "| " + " | ".join(["---"] * num_cols) + " |"
+                body = ["| " + " | ".join(r) + " |" for r in norm_rows[1:]]
+                table_md = "\n".join([header, sep] + body)
+                tables_found.append(table_md)
+            current_table = []
+
+    if len(current_table) >= 2:
+        num_cols = max(len(row) for row in current_table)
+        norm_rows = [row + [""] * (num_cols - len(row)) for row in current_table]
+        header = "| " + " | ".join(norm_rows[0]) + " |"
+        sep = "| " + " | ".join(["---"] * num_cols) + " |"
+        body = ["| " + " | ".join(r) + " |" for r in norm_rows[1:]]
+        table_md = "\n".join([header, sep] + body)
+        tables_found.append(table_md)
+
+    return text, tables_found
+
+
 def extract_pdf_pages(file_bytes: bytes, filename: str) -> ExtractionResult:
     """
     Extract text page-by-page from raw PDF bytes.
@@ -145,9 +186,10 @@ def extract_pdf_pages(file_bytes: bytes, filename: str) -> ExtractionResult:
                 char_count = len(cleaned_text)
                 total_chars += char_count
 
-                # Extract potential headings
+                # Extract potential headings and tables
                 lines = cleaned_text.splitlines()
                 headings = [line.strip() for line in lines if len(line.strip()) < 80 and line.strip().isupper() and len(line.strip()) > 3][:5]
+                _, tables = detect_and_format_tables(cleaned_text)
 
                 extracted_pages.append(
                     ExtractedPage(
@@ -156,6 +198,7 @@ def extract_pdf_pages(file_bytes: bytes, filename: str) -> ExtractionResult:
                         char_count=char_count,
                         is_empty=(char_count == 0),
                         headings=headings,
+                        tables=tables,
                     )
                 )
                 full_markdown_parts.append(f"## Page {page_num}\n\n{cleaned_text}")
