@@ -1,12 +1,18 @@
+import gc
 import logging
 import math
 from typing import List, Optional, Tuple
+import torch
 from sentence_transformers import CrossEncoder
 
 from backend.app.core.config import settings
 from backend.app.services.retrieval_service import RetrievalCandidate
 
 logger = logging.getLogger("docnest.reranker")
+
+# Configure optimal thread utilization for 12GB CPU target
+if torch.get_num_threads() > 4:
+    torch.set_num_threads(4)
 
 
 def sigmoid(x: float) -> float:
@@ -20,18 +26,19 @@ def sigmoid(x: float) -> float:
 class CrossEncoderReranker:
     """
     Singleton Cross-Encoder reranker evaluating query-document relevance.
-    Employs ms-marco-MiniLM-L-6-v2 on CPU with sigmoid score normalization
-    and strict confidence filtering.
+    Optimized for 12GB RAM environments using batched CPU inference,
+    torch.inference_mode, and passage truncation.
     """
 
     def __init__(self, model_name: Optional[str] = None):
         self.model_name = model_name or settings.RERANKER_MODEL
         self._model: Optional[CrossEncoder] = None
+        self.batch_size = 16
 
     def _ensure_model(self) -> CrossEncoder:
         if self._model is None:
             logger.info(f"Loading CrossEncoder reranker model '{self.model_name}' on CPU...")
-            self._model = CrossEncoder(self.model_name, max_length=512)
+            self._model = CrossEncoder(self.model_name, max_length=384, device="cpu")
             logger.info("CrossEncoder reranker loaded successfully.")
         return self._model
 
@@ -43,17 +50,23 @@ class CrossEncoderReranker:
         min_relevance_score: float = 0.30,
     ) -> List[RetrievalCandidate]:
         """
-        Rerank a list of retrieval candidates against the query string.
-        Returns candidates scoring >= min_relevance_score, sorted descending, up to top_k.
+        Rerank a list of retrieval candidates against the query string with
+        memory-efficient batching and inference_mode.
         """
         if not candidates or not query.strip():
             return []
 
         model = self._ensure_model()
-        pairs = [[query, c.text] for c in candidates]
+        # Truncate passage text to 400 chars to avoid large attention matrix memory spikes
+        pairs = [[query, c.text[:400]] for c in candidates]
 
-        # Predict logits
-        logits = model.predict(pairs, show_progress_bar=False)
+        with torch.inference_mode():
+            logits = model.predict(
+                pairs,
+                batch_size=self.batch_size,
+                show_progress_bar=False,
+                convert_to_numpy=True,
+            )
 
         scored_candidates: List[RetrievalCandidate] = []
         for candidate, raw_logit in zip(candidates, logits):
