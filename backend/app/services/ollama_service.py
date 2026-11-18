@@ -67,6 +67,64 @@ class OllamaService:
 
         return models[0] if models else self.default_model
 
+    async def rewrite_conversational_query(
+        self,
+        query: str,
+        chat_history: List[Dict[str, str]],
+        model: Optional[str] = None,
+    ) -> str:
+        """
+        Rewrite follow-up questions into standalone queries based on recent conversation turns.
+        """
+        if not chat_history or not query.strip():
+            return query
+
+        # Format recent history (up to last 4 turns)
+        recent_history = chat_history[-4:]
+        history_lines = []
+        for msg in recent_history:
+            sender = "User" if msg.get("role") in ["user", "human"] or msg.get("sender") == "user" else "Assistant"
+            text = (msg.get("content") or msg.get("text") or "").strip()
+            if text:
+                history_lines.append(f"{sender}: {text[:200]}")
+
+        if not history_lines:
+            return query
+
+        history_str = "\n".join(history_lines)
+        prompt = f"""Given the following conversation history between a User and an Assistant, rewrite the User's latest question into a self-contained, standalone question suitable for document retrieval.
+DO NOT answer the question. ONLY output the rewritten standalone question. If the question is already self-contained, output it unchanged.
+
+Conversation History:
+{history_str}
+
+Latest User Question: {query}
+
+Standalone Question:"""
+
+        try:
+            target_model = model or await self.get_active_model()
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(
+                    f"{self.base_url}/api/generate",
+                    json={
+                        "model": target_model,
+                        "prompt": prompt,
+                        "stream": False,
+                        "options": {"temperature": 0.0, "top_p": 0.8},
+                    },
+                )
+                if resp.status_code == 200:
+                    rewritten = resp.json().get("response", "").strip()
+                    rewritten = rewritten.strip('"\'')
+                    if rewritten and len(rewritten) > 3:
+                        logger.info(f"Query rewritten: '{query}' -> '{rewritten}'")
+                        return rewritten
+        except Exception as e:
+            logger.warning(f"Query rewriting failed ({e}), using raw query.")
+
+        return query
+
     async def generate_response(
         self,
         prompt: str,
