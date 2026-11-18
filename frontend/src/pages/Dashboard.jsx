@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { fetchDashboardStats, fetchChatSessions } from '../services/api';
 
+import PipelineControlPanel from '../components/PipelineControlPanel';
+
 export default function Dashboard({
   documents = [],
   totalChunks = 0,
@@ -210,8 +212,11 @@ export default function Dashboard({
           )}
         </div>
 
-        {/* Recent Sessions & Pipeline Card */}
+        {/* Pipeline Controls & Recent Sessions */}
         <div className="space-y-6">
+          {/* Live Pipeline Controls Card */}
+          <PipelineControlPanel />
+
           {/* Recent Chat Sessions */}
           <div className="bg-carbon-surface border border-silver-border rounded-xl p-6 shadow-carbon-md">
             <div className="flex items-center justify-between mb-3">
