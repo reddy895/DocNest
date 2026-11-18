@@ -1,11 +1,38 @@
+import hashlib
 import logging
 import requests
-from typing import List, Optional, Any
+from collections import OrderedDict
+from typing import List, Optional, Any, Dict
 from chromadb.api.types import Documents, EmbeddingFunction, Embeddings
 from sentence_transformers import SentenceTransformer
 from backend.app.core.config import settings
 
 logger = logging.getLogger("docnest.embedder")
+
+
+class EmbeddingLRUCache:
+    """Thread-safe LRU cache for computed embeddings to minimize inference load."""
+    def __init__(self, maxsize: int = 2048):
+        self.maxsize = maxsize
+        self.cache: OrderedDict[str, List[float]] = OrderedDict()
+
+    def _hash_key(self, text: str) -> str:
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+    def get(self, text: str) -> Optional[List[float]]:
+        k = self._hash_key(text)
+        if k in self.cache:
+            self.cache.move_to_end(k)
+            return self.cache[k]
+        return None
+
+    def put(self, text: str, vector: List[float]) -> None:
+        k = self._hash_key(text)
+        if k in self.cache:
+            self.cache.move_to_end(k)
+        self.cache[k] = vector
+        if len(self.cache) > self.maxsize:
+            self.cache.popitem(last=False)
 
 
 class OllamaNomicEmbedder(EmbeddingFunction[Documents]):
@@ -26,6 +53,7 @@ class OllamaNomicEmbedder(EmbeddingFunction[Documents]):
         self.batch_size = batch_size
         self._fallback_model: Optional[SentenceTransformer] = None
         self._use_ollama = True
+        self._cache = EmbeddingLRUCache(maxsize=4096)
         self._check_ollama_availability()
 
     def _check_ollama_availability(self) -> None:
@@ -71,29 +99,45 @@ class OllamaNomicEmbedder(EmbeddingFunction[Documents]):
         return vectors.tolist()
 
     def __call__(self, input: Documents) -> Embeddings:
-        """Embed a list of text strings with batching and fallback."""
+        """Embed a list of text strings with LRU caching, batching, and fallback."""
         if not input:
             return []
 
-        all_embeddings: List[List[float]] = []
+        results: List[Optional[List[float]]] = [None] * len(input)
+        missing_indices: List[int] = []
+        missing_texts: List[str] = []
 
-        # Batch requests to avoid socket overload
-        for i in range(0, len(input), self.batch_size):
-            batch = input[i : i + self.batch_size]
-            if self._use_ollama:
-                try:
-                    embeddings = self._embed_via_ollama(batch)
-                    all_embeddings.extend(embeddings)
-                    continue
-                except Exception as exc:
-                    logger.warning(f"Ollama embedding batch failed: {exc}. Using fallback.")
-                    self._use_ollama = False
+        # 1. Lookup in LRU cache
+        for idx, text in enumerate(input):
+            cached = self._cache.get(text)
+            if cached is not None:
+                results[idx] = cached
+            else:
+                missing_indices.append(idx)
+                missing_texts.append(text)
 
-            # Fallback
-            fallback_embeddings = self._embed_via_fallback(batch)
-            all_embeddings.extend(fallback_embeddings)
+        # 2. Batch compute missing embeddings
+        if missing_texts:
+            computed_embeddings: List[List[float]] = []
+            for i in range(0, len(missing_texts), self.batch_size):
+                batch = missing_texts[i : i + self.batch_size]
+                if self._use_ollama:
+                    try:
+                        emb = self._embed_via_ollama(batch)
+                        computed_embeddings.extend(emb)
+                        continue
+                    except Exception as exc:
+                        logger.warning(f"Ollama embedding batch failed: {exc}. Using fallback.")
+                        self._use_ollama = False
 
-        return all_embeddings
+                fallback_emb = self._embed_via_fallback(batch)
+                computed_embeddings.extend(fallback_emb)
+
+            for original_idx, text, vector in zip(missing_indices, missing_texts, computed_embeddings):
+                self._cache.put(text, vector)
+                results[original_idx] = vector
+
+        return results  # type: ignore
 
     def embed_query(self, input: Any = None, query: Any = None, *args, **kwargs) -> Any:
         """Chroma-compatible query embedding handler."""
