@@ -16,17 +16,45 @@ export default function PipelineControlPanel({ onSettingsUpdated }) {
   const [loading, setLoading] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const data = await fetchUserSettings();
-        if (data) setSettings((prev) => ({ ...prev, ...data }));
-      } catch (err) {
-        console.warn('Could not load user pipeline settings:', err);
-      }
+  const PRESETS = {
+    strict: {
+      preset_name: 'strict',
+      top_k: 3,
+      min_relevance_score: 0.50,
+      temperature: 0.0,
+      chunk_size: 384,
+      chunk_overlap: 48,
+      hybrid_enabled: true,
+      reranker_enabled: true,
+    },
+    balanced: {
+      preset_name: 'balanced',
+      top_k: 5,
+      min_relevance_score: 0.30,
+      temperature: 0.1,
+      chunk_size: 512,
+      chunk_overlap: 64,
+      hybrid_enabled: true,
+      reranker_enabled: true,
+    },
+    deep: {
+      preset_name: 'deep',
+      top_k: 8,
+      min_relevance_score: 0.15,
+      temperature: 0.3,
+      chunk_size: 768,
+      chunk_overlap: 96,
+      hybrid_enabled: true,
+      reranker_enabled: true,
+    },
+  };
+
+  const applyPreset = (presetKey) => {
+    const p = PRESETS[presetKey];
+    if (p) {
+      setSettings((prev) => ({ ...prev, ...p }));
     }
-    load();
-  }, []);
+  };
 
   const handleSave = async () => {
     setLoading(true);
@@ -78,6 +106,43 @@ export default function PipelineControlPanel({ onSettingsUpdated }) {
       <p className="text-xs text-silver-secondary">
         Real-time pipeline hyperparameters governing retrieval fusion and generation.
       </p>
+
+      {/* Preset Selector */}
+      <div className="grid grid-cols-3 gap-1.5 p-1 bg-carbon-primary border border-silver-border rounded-lg">
+        <button
+          type="button"
+          onClick={() => applyPreset('strict')}
+          className={`py-1 text-[11px] font-medium rounded-md transition ${
+            settings.preset_name === 'strict'
+              ? 'bg-signal-yellow text-carbon-deep font-bold shadow-sm'
+              : 'text-silver-secondary hover:text-silver-light'
+          }`}
+        >
+          Strict Fact-Check
+        </button>
+        <button
+          type="button"
+          onClick={() => applyPreset('balanced')}
+          className={`py-1 text-[11px] font-medium rounded-md transition ${
+            settings.preset_name === 'balanced'
+              ? 'bg-signal-yellow text-carbon-deep font-bold shadow-sm'
+              : 'text-silver-secondary hover:text-silver-light'
+          }`}
+        >
+          Balanced
+        </button>
+        <button
+          type="button"
+          onClick={() => applyPreset('deep')}
+          className={`py-1 text-[11px] font-medium rounded-md transition ${
+            settings.preset_name === 'deep'
+              ? 'bg-signal-yellow text-carbon-deep font-bold shadow-sm'
+              : 'text-silver-secondary hover:text-silver-light'
+          }`}
+        >
+          Deep Synthesis
+        </button>
+      </div>
 
       <div className="space-y-3.5 pt-1 text-xs">
         {/* Top-K Slider */}
