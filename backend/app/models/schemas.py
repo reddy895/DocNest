@@ -79,9 +79,25 @@ class Citation(BaseModel):
 class ChatQueryRequest(BaseModel):
     """Incoming user question request."""
     question: str = Field(min_length=1, max_length=2000)
+    session_id: Optional[str] = None
     doc_id: Optional[str] = None
-    top_k: Optional[int] = Field(default=4, ge=1, le=12)
+    doc_ids: Optional[List[str]] = None
+    chat_history: Optional[List[Dict[str, Any]]] = None
+    top_k: Optional[int] = Field(default=5, ge=1, le=12)
+    min_relevance_score: Optional[float] = Field(default=0.30, ge=0.0, le=1.0)
     similarity_threshold: Optional[float] = Field(default=0.25, ge=0.0, le=1.0)
+    temperature: Optional[float] = Field(default=0.1, ge=0.0, le=1.0)
+
+
+class StreamChatRequest(BaseModel):
+    """Payload for real-time SSE token streaming."""
+    question: str = Field(min_length=1, max_length=2000)
+    session_id: Optional[str] = None
+    doc_ids: Optional[List[str]] = None
+    chat_history: Optional[List[Dict[str, Any]]] = None
+    top_k: Optional[int] = Field(default=5, ge=1, le=12)
+    min_relevance_score: Optional[float] = Field(default=0.30, ge=0.0, le=1.0)
+    temperature: Optional[float] = Field(default=0.1, ge=0.0, le=1.0)
 
 
 class ChatQueryResponse(BaseModel):

@@ -1,5 +1,6 @@
+import json
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, AsyncGenerator
 import httpx
 from backend.app.core.config import settings
 
@@ -179,6 +180,47 @@ Standalone Question:"""
         except Exception as exc:
             logger.error(f"Unexpected Ollama client error: {exc}", exc_info=True)
             return f"An error occurred while generating the answer: {str(exc)}"
+
+    async def stream_response(
+        self,
+        prompt: str,
+        system_prompt: Optional[str] = None,
+        model: Optional[str] = None,
+        temperature: float = 0.1,
+    ) -> AsyncGenerator[str, None]:
+        """
+        Stream generated tokens from Ollama /api/generate via httpx streaming.
+        """
+        target_model = model or await self.get_active_model()
+        url = f"{self.base_url}/api/generate"
+        payload = {
+            "model": target_model,
+            "prompt": prompt,
+            "stream": True,
+            "options": {"temperature": temperature, "top_p": 0.9},
+        }
+        if system_prompt:
+            payload["system"] = system_prompt
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                async with client.stream("POST", url, json=payload) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if not line:
+                            continue
+                        try:
+                            chunk = json.loads(line)
+                            token = chunk.get("response", "")
+                            if token:
+                                yield token
+                            if chunk.get("done", False):
+                                break
+                        except Exception:
+                            continue
+        except Exception as exc:
+            logger.error(f"Error in Ollama token streaming: {exc}")
+            yield f"\n[Stream interrupted: {exc}]"
 
 
 # Global Singleton instance
