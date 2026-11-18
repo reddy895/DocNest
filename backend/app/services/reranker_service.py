@@ -16,11 +16,23 @@ if torch.get_num_threads() > 4:
 
 
 def sigmoid(x: float) -> float:
-    """Normalize raw logit to [0, 1] probability range."""
+    """Standard sigmoid function mapping raw logit to [0, 1]."""
     try:
         return 1.0 / (1.0 + math.exp(-x))
     except OverflowError:
         return 0.0 if x < 0 else 1.0
+
+
+def calibrate_msmarco_score(raw_logit: float) -> float:
+    """
+    Calibrate raw MS-MARCO CrossEncoder logit to normalized [0, 1] relevance score.
+    ms-marco-MiniLM-L-6-v2 logits center around -6.0 (range ~ [-12, +4]):
+      - Logit <= -10: noise / irrelevant (~ 0.05-0.10)
+      - Logit ~ -7.5: borderline relevance (~ 0.32)
+      - Logit ~ -5.5: moderate relevance (~ 0.56)
+      - Logit >= 0.0: high / exact relevance (>= 0.95)
+    """
+    return sigmoid((raw_logit + 6.0) / 2.0)
 
 
 class CrossEncoderReranker:
@@ -70,7 +82,7 @@ class CrossEncoderReranker:
 
         scored_candidates: List[RetrievalCandidate] = []
         for candidate, raw_logit in zip(candidates, logits):
-            normalized_score = sigmoid(float(raw_logit))
+            normalized_score = calibrate_msmarco_score(float(raw_logit))
             candidate.reranker_score = round(normalized_score, 4)
 
             if normalized_score >= min_relevance_score:

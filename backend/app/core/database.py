@@ -109,6 +109,10 @@ class DatabaseManager:
         logger.info(f"Initializing SQLite database schema at {self.db_path}...")
         async with aiosqlite.connect(self.db_path) as db:
             await db.executescript(SCHEMA_SQL)
+            await db.execute("""
+            INSERT OR IGNORE INTO users (id, email, username, password_hash, workspace_name, created_at)
+            VALUES ('user_default_local', 'local@docnest.ai', 'Local User', 'local_dev_only', 'Default Workspace', datetime('now'))
+            """)
             await db.commit()
         logger.info("Database schema initialized successfully.")
 

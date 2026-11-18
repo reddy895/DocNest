@@ -349,6 +349,24 @@ class ChromaService:
                 embedding_function=embedder,
                 metadata={"hnsw:space": "cosine"},
             )
+
+            # Probe collection dimension compatibility with current embedder
+            try:
+                if self._collection.count() > 0:
+                    self._collection.query(query_texts=["dimension_probe"], n_results=1)
+            except Exception as dim_err:
+                if "dimension" in str(dim_err).lower():
+                    logger.warning(
+                        f"ChromaDB dimension mismatch detected ({dim_err}). "
+                        f"Recreating collection '{self.collection_name}' for current embedding model..."
+                    )
+                    self._client.delete_collection(self.collection_name)
+                    self._collection = self._client.get_or_create_collection(
+                        name=self.collection_name,
+                        embedding_function=embedder,
+                        metadata={"hnsw:space": "cosine"},
+                    )
+
             logger.info(
                 f"ChromaDB collection '{self.collection_name}' ready. "
                 f"Existing chunk count: {self._collection.count()}"
