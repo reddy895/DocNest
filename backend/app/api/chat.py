@@ -312,6 +312,36 @@ async def query_chat(request: ChatQueryRequest):
         )
 
 
+@router.post("/{message_id}/feedback")
+async def record_message_feedback(message_id: str, payload: FeedbackRequest):
+    """
+    Record user thumbs-up (+1) or thumbs-down (-1) rating and diagnostic comment
+    for telemetry and retrieval tuning.
+    """
+    async with get_db_connection() as db:
+        cursor = await db.execute("SELECT id FROM chat_messages WHERE id = ?", (message_id,))
+        row = await cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Message not found")
+
+        await db.execute(
+            """
+            UPDATE chat_messages
+            SET feedback_rating = ?, feedback_comment = ?
+            WHERE id = ?
+            """,
+            (payload.rating, payload.comment or "", message_id),
+        )
+        await db.commit()
+
+    return {
+        "success": True,
+        "message_id": message_id,
+        "feedback_rating": payload.rating,
+        "feedback_comment": payload.comment,
+    }
+
+
 @router.get("/suggestions")
 async def get_suggested_questions(doc_id: Optional[str] = None):
     """
