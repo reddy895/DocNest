@@ -15,14 +15,19 @@ class ValidationResult(BaseModel):
 class DocumentInfo(BaseModel):
     """Metadata for an uploaded document."""
     doc_id: str
+    user_id: str = "user_default_local"
+    workspace_id: str = "Default Workspace"
     filename: str
     file_size_bytes: int
     file_hash: str
     page_count: int
     total_chunks: int
     upload_date: str
-    status: str = "indexed"
+    status: str = "ready"
+    progress_pct: int = 100
+    error_msg: Optional[str] = None
     is_scanned: bool = False
+    tags: List[str] = Field(default_factory=list)
 
 
 class DocumentListResponse(BaseModel):
