@@ -125,12 +125,21 @@ class HybridRetriever:
         """
         Query ChromaDB and BM25 concurrently and fuse ranks with RRF.
         """
-        # 1. Query Dense ChromaDB with Scoping Filters
+        # 1. Clean and normalize doc_ids
+        clean_doc_ids: Optional[List[str]] = None
+        if doc_ids:
+            clean_doc_ids = [
+                d.get("doc_id") or d.get("id") if isinstance(d, dict) else str(d)
+                for d in doc_ids
+                if d
+            ]
+
+        # Query Dense ChromaDB with Scoping Filters
         conditions = []
-        if doc_ids and len(doc_ids) == 1:
-            conditions.append({"doc_id": doc_ids[0]})
-        elif doc_ids and len(doc_ids) > 1:
-            conditions.append({"doc_id": {"$in": doc_ids}})
+        if clean_doc_ids and len(clean_doc_ids) == 1:
+            conditions.append({"doc_id": clean_doc_ids[0]})
+        elif clean_doc_ids and len(clean_doc_ids) > 1:
+            conditions.append({"doc_id": {"$in": clean_doc_ids}})
 
         if workspace_id:
             conditions.append({"workspace_id": workspace_id})
@@ -165,7 +174,7 @@ class HybridRetriever:
         sparse_results = self.bm25.search(
             query=query,
             top_k=sparse_limit,
-            doc_ids=doc_ids,
+            doc_ids=clean_doc_ids,
             workspace_id=workspace_id,
         )
 

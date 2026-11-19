@@ -55,7 +55,10 @@ export default function ChatWorkspace({
   // Sync selectedDocId prop into selectedDocIds array
   useEffect(() => {
     if (selectedDocId) {
-      setSelectedDocIds([selectedDocId]);
+      const cleanId = typeof selectedDocId === 'object' && selectedDocId !== null
+        ? (selectedDocId.doc_id || selectedDocId.id)
+        : selectedDocId;
+      setSelectedDocIds(cleanId ? [cleanId] : []);
     } else {
       setSelectedDocIds([]);
     }
@@ -172,6 +175,10 @@ export default function ChatWorkspace({
 
     abortControllerRef.current = new AbortController();
 
+    const cleanDocIds = selectedDocIds
+      .map((d) => (typeof d === 'object' && d !== null ? (d.doc_id || d.id) : d))
+      .filter(Boolean);
+
     try {
       const response = await fetch('/api/chat/stream', {
         method: 'POST',
@@ -180,7 +187,7 @@ export default function ChatWorkspace({
         body: JSON.stringify({
           question: q,
           session_id: targetSessionId,
-          doc_ids: selectedDocIds.length > 0 ? selectedDocIds : null,
+          doc_ids: cleanDocIds.length > 0 ? cleanDocIds : null,
           chat_history: messages.slice(-4),
         }),
       });
@@ -533,6 +540,32 @@ export default function ChatWorkspace({
         {/* BOTTOM: Sticky Prompt Input Bar */}
         <div className="border-t border-[#343A3F] p-4 bg-[#111315] flex-shrink-0">
           <div className="max-w-3xl mx-auto">
+            {/* Active Document Scope Indicator */}
+            {selectedDocIds.length > 0 && (
+              <div className="mb-2 flex items-center justify-between px-3 py-1.5 bg-[#191C1F] border border-[#E5B83D]/40 rounded-xl text-xs text-[#F0F1F2]">
+                <div className="flex items-center gap-2 truncate">
+                  <span className="w-2 h-2 rounded-full bg-[#E5B83D] animate-ping" />
+                  <span className="text-[#A0A6AC]">Scoped to:</span>
+                  <span className="font-semibold text-[#E5B83D] truncate">
+                    {selectedDocIds.length === 1
+                      ? documents.find((d) => (d.doc_id || d.id) === selectedDocIds[0])?.filename || '1 document'
+                      : `${selectedDocIds.length} documents`}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedDocIds([]);
+                    onSelectDocId(null);
+                  }}
+                  className="flex items-center gap-1 text-[11px] text-[#A0A6AC] hover:text-[#F0F1F2] px-2 py-0.5 rounded hover:bg-[#22262A] transition"
+                >
+                  <X className="w-3 h-3" />
+                  <span>Search All Documents</span>
+                </button>
+              </div>
+            )}
+
             <form
               onSubmit={(e) => {
                 e.preventDefault();

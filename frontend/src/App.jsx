@@ -79,7 +79,10 @@ export default function App() {
     setViewingPage(page);
   };
 
-  const handleQueryDocument = (docId) => {
+  const handleQueryDocument = (docOrId) => {
+    const docId = typeof docOrId === 'object' && docOrId !== null
+      ? (docOrId.doc_id || docOrId.id)
+      : docOrId;
     setSelectedDocId(docId);
     setActiveTab('chat');
   };

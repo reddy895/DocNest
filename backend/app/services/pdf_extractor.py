@@ -1,5 +1,6 @@
 import io
 import csv
+import re
 import logging
 from typing import List, Optional, Dict, Any
 from pathlib import Path
@@ -40,6 +41,31 @@ class ExtractionResult(BaseModel):
     error_message: Optional[str] = None
 
 
+def format_as_markdown_table(lines: List[str]) -> str:
+    """Format whitespace or tab separated lines into a GitHub markdown table."""
+    rows = []
+    for line in lines:
+        if "|" in line:
+            cells = [c.strip() for c in line.split("|") if c.strip()]
+        elif "\t" in line:
+            cells = [c.strip() for c in line.split("\t") if c.strip()]
+        else:
+            cells = [c.strip() for c in re.split(r"\s{2,}", line.strip()) if c.strip()]
+        if cells:
+            rows.append(cells)
+    if not rows:
+        return "\n".join(lines)
+    max_cols = max(len(r) for r in rows)
+    formatted = []
+    header = rows[0] + [""] * (max_cols - len(rows[0]))
+    formatted.append("| " + " | ".join(header) + " |")
+    formatted.append("| " + " | ".join(["---"] * max_cols) + " |")
+    for r in rows[1:]:
+        padded = r + [""] * (max_cols - len(r))
+        formatted.append("| " + " | ".join(padded) + " |")
+    return "\n".join(formatted)
+
+
 def detect_and_format_tables(text: str) -> tuple[str, List[str]]:
     """Detect ASCII or markdown tables in text and format them cleanly."""
     lines = text.splitlines()
@@ -48,17 +74,17 @@ def detect_and_format_tables(text: str) -> tuple[str, List[str]]:
     in_table = False
 
     for line in lines:
-        if "|" in line or "\t" in line or "    " in line and len(line.split()) >= 3:
+        if "|" in line or "\t" in line or ("  " in line and len(line.split()) >= 3):
             in_table = True
             table_block.append(line)
         else:
             if in_table and len(table_block) >= 2:
-                tables.append("\n".join(table_block))
+                tables.append(format_as_markdown_table(table_block))
             table_block = []
             in_table = False
 
     if in_table and len(table_block) >= 2:
-        tables.append("\n".join(table_block))
+        tables.append(format_as_markdown_table(table_block))
 
     return text, tables
 
