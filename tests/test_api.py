@@ -101,5 +101,41 @@ def test_research_generators(client, monkeypatch):
     assert len(res_fc.json()["flashcards"]) > 0
 
 
+def test_research_notes_crud_and_export(client):
+    # 1. Create note
+    payload = {
+        "title": "Quantum RAG Notes",
+        "content": "Detailed synthesis regarding vector representations.",
+        "tags": ["rag", "ai"],
+        "source_citations": [{"filename": "Resume.pdf", "page_number": 1}],
+    }
+    create_res = client.post("/api/research/notes", json=payload)
+    assert create_res.status_code == 201
+    note = create_res.json()
+    note_id = note["id"]
+    assert note["title"] == "Quantum RAG Notes"
+
+    # 2. List notes
+    list_res = client.get("/api/research/notes")
+    assert list_res.status_code == 200
+    assert any(n["id"] == note_id for n in list_res.json())
+
+    # 3. Update note
+    patch_res = client.patch(f"/api/research/notes/{note_id}", json={"title": "Updated Quantum RAG"})
+    assert patch_res.status_code == 200
+    assert patch_res.json()["title"] == "Updated Quantum RAG"
+
+    # 4. Export markdown
+    export_res = client.get(f"/api/research/notes/{note_id}/export")
+    assert export_res.status_code == 200
+    assert "# Updated Quantum RAG" in export_res.text
+    assert "Resume.pdf" in export_res.text
+
+    # 5. Delete note
+    del_res = client.delete(f"/api/research/notes/{note_id}")
+    assert del_res.status_code == 204
+
+
+
 
 
