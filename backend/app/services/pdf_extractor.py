@@ -1,6 +1,8 @@
 import io
+import csv
 import logging
 from typing import List, Optional, Dict, Any
+from pathlib import Path
 from pydantic import BaseModel
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError, FileNotDecryptedError
@@ -38,6 +40,29 @@ class ExtractionResult(BaseModel):
     error_message: Optional[str] = None
 
 
+def detect_and_format_tables(text: str) -> tuple[str, List[str]]:
+    """Detect ASCII or markdown tables in text and format them cleanly."""
+    lines = text.splitlines()
+    tables = []
+    table_block = []
+    in_table = False
+
+    for line in lines:
+        if "|" in line or "\t" in line or "    " in line and len(line.split()) >= 3:
+            in_table = True
+            table_block.append(line)
+        else:
+            if in_table and len(table_block) >= 2:
+                tables.append("\n".join(table_block))
+            table_block = []
+            in_table = False
+
+    if in_table and len(table_block) >= 2:
+        tables.append("\n".join(table_block))
+
+    return text, tables
+
+
 def extract_pdf_with_docling(file_bytes: bytes, filename: str) -> Optional[ExtractionResult]:
     """Attempt layout-aware structured Markdown extraction with IBM Docling."""
     if not HAS_DOCLING:
@@ -58,95 +83,323 @@ def extract_pdf_with_docling(file_bytes: bytes, filename: str) -> Optional[Extra
         pages: List[ExtractedPage] = []
         page_chunks = markdown_text.split("<!-- page break -->")
         if len(page_chunks) <= 1:
-            page_chunks = [markdown_text]
+            page_chunks = markdown_text.split("\n## ")
 
-        for idx, page_content in enumerate(page_chunks):
-            page_num = idx + 1
-            text_clean = page_content.strip()
+        for idx, chunk in enumerate(page_chunks):
+            p_text = chunk.strip()
+            if not p_text and len(page_chunks) > 1:
+                continue
+            p_num = idx + 1
+            headings = [line.strip("# ").strip() for line in p_text.splitlines() if line.strip().startswith("#")][:5]
+            _, tables = detect_and_format_tables(p_text)
             pages.append(
                 ExtractedPage(
-                    page_number=page_num,
-                    text=text_clean,
-                    char_count=len(text_clean),
-                    is_empty=(len(text_clean) == 0),
+                    page_number=p_num,
+                    text=p_text,
+                    char_count=len(p_text),
+                    is_empty=len(p_text) == 0,
+                    headings=headings,
+                    tables=tables,
                 )
             )
 
-        total_chars = len(markdown_text)
-        page_count = max(len(pages), 1)
-        is_scanned = total_chars < (page_count * 40)
+        if not pages:
+            pages = [ExtractedPage(page_number=1, text=markdown_text, char_count=len(markdown_text), is_empty=False)]
 
         return ExtractionResult(
             filename=filename,
-            page_count=page_count,
+            page_count=len(pages),
             pages=pages,
             markdown_content=markdown_text,
-            is_scanned=is_scanned,
-            total_chars=total_chars,
-            parser_used="docling",
+            is_scanned=False,
+            total_chars=len(markdown_text),
+            parser_used="ibm_docling",
+            error_message=None,
         )
     except Exception as exc:
-        logger.warning(f"Docling extraction failed for '{filename}', falling back to fast layout parser: {exc}")
+        logger.warning(f"Docling extraction failed for '{filename}', falling back to PyPDF: {exc}")
         return None
 
 
-def detect_and_format_tables(text: str) -> tuple[str, List[str]]:
+def extract_docx(file_bytes: bytes, filename: str) -> ExtractionResult:
+    """Extract structured paragraphs, headings, and tables from DOCX files."""
+    try:
+        import docx
+        doc = docx.Document(io.BytesIO(file_bytes))
+        pages: List[ExtractedPage] = []
+        current_page_lines: List[str] = []
+        current_headings: List[str] = []
+        current_tables: List[str] = []
+        page_num = 1
+
+        for para in doc.paragraphs:
+            text = para.text.strip()
+            if not text:
+                continue
+
+            if para.style and "heading" in para.style.name.lower():
+                current_headings.append(text)
+                current_page_lines.append(f"### {text}\n")
+            else:
+                current_page_lines.append(text)
+
+            # Paginate roughly every 2500 characters
+            joined = "\n".join(current_page_lines)
+            if len(joined) > 2500:
+                pages.append(
+                    ExtractedPage(
+                        page_number=page_num,
+                        text=joined,
+                        char_count=len(joined),
+                        is_empty=False,
+                        headings=current_headings,
+                        tables=current_tables,
+                    )
+                )
+                page_num += 1
+                current_page_lines = []
+                current_headings = []
+                current_tables = []
+
+        # Process docx tables
+        for table in doc.tables:
+            table_lines = []
+            for row in table.rows:
+                cells = [c.text.strip().replace("\n", " ") for c in row.cells]
+                table_lines.append("| " + " | ".join(cells) + " |")
+            if table_lines:
+                tbl_str = "\n".join(table_lines)
+                current_tables.append(tbl_str)
+                current_page_lines.append(f"\n{tbl_str}\n")
+
+        # Final page
+        joined_final = "\n".join(current_page_lines)
+        if joined_final or not pages:
+            pages.append(
+                ExtractedPage(
+                    page_number=page_num,
+                    text=joined_final,
+                    char_count=len(joined_final),
+                    is_empty=len(joined_final) == 0,
+                    headings=current_headings,
+                    tables=current_tables,
+                )
+            )
+
+        total_chars = sum(p.char_count for p in pages)
+        full_md = "\n\n".join(f"## Page {p.page_number}\n\n{p.text}" for p in pages)
+
+        return ExtractionResult(
+            filename=filename,
+            page_count=len(pages),
+            pages=pages,
+            markdown_content=full_md,
+            is_scanned=False,
+            total_chars=total_chars,
+            parser_used="python_docx",
+            error_message=None,
+        )
+    except Exception as exc:
+        logger.error(f"Failed to extract DOCX '{filename}': {exc}", exc_info=True)
+        return ExtractionResult(
+            filename=filename,
+            page_count=0,
+            pages=[],
+            error_message=f"DOCX extraction failed: {str(exc)}",
+        )
+
+
+def extract_txt_or_md(file_bytes: bytes, filename: str) -> ExtractionResult:
+    """Extract plain text or Markdown files with structure preservation."""
+    try:
+        # Decode UTF-8 with fallback
+        try:
+            content = file_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            content = file_bytes.decode("latin-1")
+
+        content = content.replace("\r\n", "\n").strip()
+        if not content:
+            return ExtractionResult(
+                filename=filename,
+                page_count=0,
+                pages=[],
+                error_message="File is empty.",
+            )
+
+        # Chunk into logical pages of ~2000 chars along paragraph boundaries
+        paragraphs = content.split("\n\n")
+        pages: List[ExtractedPage] = []
+        current_chunk = []
+        current_len = 0
+        page_num = 1
+
+        for para in paragraphs:
+            current_chunk.append(para)
+            current_len += len(para) + 2
+            if current_len >= 2000:
+                page_text = "\n\n".join(current_chunk)
+                headings = [line.strip("# ").strip() for line in page_text.splitlines() if line.strip().startswith("#")][:5]
+                pages.append(
+                    ExtractedPage(
+                        page_number=page_num,
+                        text=page_text,
+                        char_count=len(page_text),
+                        is_empty=False,
+                        headings=headings,
+                    )
+                )
+                page_num += 1
+                current_chunk = []
+                current_len = 0
+
+        if current_chunk:
+            page_text = "\n\n".join(current_chunk)
+            headings = [line.strip("# ").strip() for line in page_text.splitlines() if line.strip().startswith("#")][:5]
+            pages.append(
+                ExtractedPage(
+                    page_number=page_num,
+                    text=page_text,
+                    char_count=len(page_text),
+                    is_empty=False,
+                    headings=headings,
+                )
+            )
+
+        total_chars = len(content)
+        return ExtractionResult(
+            filename=filename,
+            page_count=len(pages),
+            pages=pages,
+            markdown_content=content,
+            is_scanned=False,
+            total_chars=total_chars,
+            parser_used="text_markdown_parser",
+            error_message=None,
+        )
+    except Exception as exc:
+        logger.error(f"Failed to extract TXT/MD '{filename}': {exc}", exc_info=True)
+        return ExtractionResult(
+            filename=filename,
+            page_count=0,
+            pages=[],
+            error_message=f"Text extraction failed: {str(exc)}",
+        )
+
+
+def extract_csv(file_bytes: bytes, filename: str) -> ExtractionResult:
+    """Extract CSV tabular data and format into readable markdown tables."""
+    try:
+        try:
+            content = file_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            content = file_bytes.decode("latin-1")
+
+        stream = io.StringIO(content.strip())
+        reader = csv.reader(stream)
+        rows = list(reader)
+
+        if not rows:
+            return ExtractionResult(
+                filename=filename,
+                page_count=0,
+                pages=[],
+                error_message="CSV file contains no data.",
+            )
+
+        header = rows[0]
+        data_rows = rows[1:]
+
+        # Format rows into markdown tables per 30 rows
+        chunk_size = 30
+        pages: List[ExtractedPage] = []
+        page_num = 1
+
+        for start_idx in range(0, len(data_rows), chunk_size):
+            batch = data_rows[start_idx : start_idx + chunk_size]
+            table_lines = [
+                "| " + " | ".join(header) + " |",
+                "| " + " | ".join(["---"] * len(header)) + " |",
+            ]
+            for r in batch:
+                # pad or truncate row to header length
+                padded_r = (r + [""] * len(header))[:len(header)]
+                clean_cells = [c.replace("|", "/").replace("\n", " ") for c in padded_r]
+                table_lines.append("| " + " | ".join(clean_cells) + " |")
+
+            table_text = f"### Table Part {page_num} (Rows {start_idx + 1}-{start_idx + len(batch)})\n\n" + "\n".join(table_lines)
+            pages.append(
+                ExtractedPage(
+                    page_number=page_num,
+                    text=table_text,
+                    char_count=len(table_text),
+                    is_empty=False,
+                    headings=[f"Table Part {page_num}"],
+                    tables=["\n".join(table_lines)],
+                )
+            )
+            page_num += 1
+
+        if not pages:
+            single_page = "| " + " | ".join(header) + " |\n| " + " | ".join(["---"] * len(header)) + " |"
+            pages.append(ExtractedPage(page_number=1, text=single_page, char_count=len(single_page), is_empty=False))
+
+        total_chars = sum(p.char_count for p in pages)
+        full_md = "\n\n".join(p.text for p in pages)
+
+        return ExtractionResult(
+            filename=filename,
+            page_count=len(pages),
+            pages=pages,
+            markdown_content=full_md,
+            is_scanned=False,
+            total_chars=total_chars,
+            parser_used="csv_table_parser",
+            error_message=None,
+        )
+    except Exception as exc:
+        logger.error(f"Failed to extract CSV '{filename}': {exc}", exc_info=True)
+        return ExtractionResult(
+            filename=filename,
+            page_count=0,
+            pages=[],
+            error_message=f"CSV extraction failed: {str(exc)}",
+        )
+
+
+def extract_document_content(file_bytes: bytes, filename: str) -> ExtractionResult:
     """
-    Detect multi-column table patterns in text extracted from PDFs and convert them
-    into Markdown table strings. Returns modified text and list of extracted markdown tables.
+    Universal multi-format document parser supporting PDF, DOCX, TXT, MD, and CSV.
     """
-    import re
-    lines = text.splitlines()
-    table_candidates = []
-    current_table = []
-    tables_found = []
+    ext = Path(filename).suffix.lower()
 
-    for line in lines:
-        stripped = line.strip()
-        # Look for lines with multiple items separated by 2+ spaces or tabs
-        parts = [p.strip() for p in re.split(r'\t+|\s{2,}', stripped) if p.strip()]
-        if len(parts) >= 2 and len(stripped) > 8:
-            current_table.append(parts)
-        else:
-            if len(current_table) >= 2:
-                # Format as markdown table
-                num_cols = max(len(row) for row in current_table)
-                norm_rows = [row + [""] * (num_cols - len(row)) for row in current_table]
-                header = "| " + " | ".join(norm_rows[0]) + " |"
-                sep = "| " + " | ".join(["---"] * num_cols) + " |"
-                body = ["| " + " | ".join(r) + " |" for r in norm_rows[1:]]
-                table_md = "\n".join([header, sep] + body)
-                tables_found.append(table_md)
-            current_table = []
+    if ext == ".docx":
+        return extract_docx(file_bytes, filename)
+    elif ext in [".txt", ".md"]:
+        return extract_txt_or_md(file_bytes, filename)
+    elif ext == ".csv":
+        return extract_csv(file_bytes, filename)
 
-    if len(current_table) >= 2:
-        num_cols = max(len(row) for row in current_table)
-        norm_rows = [row + [""] * (num_cols - len(row)) for row in current_table]
-        header = "| " + " | ".join(norm_rows[0]) + " |"
-        sep = "| " + " | ".join(["---"] * num_cols) + " |"
-        body = ["| " + " | ".join(r) + " |" for r in norm_rows[1:]]
-        table_md = "\n".join([header, sep] + body)
-        tables_found.append(table_md)
-
-    return text, tables_found
+    # Default to PDF parsing
+    return extract_pdf_pages(file_bytes, filename)
 
 
 def extract_pdf_pages(file_bytes: bytes, filename: str) -> ExtractionResult:
     """
-    Extract text page-by-page from raw PDF bytes.
-    First attempts Docling for layout-aware Markdown parsing, falling back to robust PyPDF.
+    Extract pages from PDF using IBM Docling if available, falling back to layout-aware PyPDF.
     """
-    # 1. Try Docling
+    ext = Path(filename).suffix.lower()
+    if ext in [".docx", ".txt", ".md", ".csv"]:
+        return extract_document_content(file_bytes, filename)
+
+    # 1. Try IBM Docling first
     docling_result = extract_pdf_with_docling(file_bytes, filename)
-    if docling_result and not docling_result.error_message and docling_result.total_chars > 0:
+    if docling_result is not None and docling_result.page_count > 0:
         return docling_result
 
-    # 2. Fallback Fast Layout Parser
+    # 2. Layout-aware PyPDF fallback
     try:
-        stream = io.BytesIO(file_bytes)
-        reader = PdfReader(stream)
-
-        # Handle encryption
+        reader = PdfReader(io.BytesIO(file_bytes))
         if reader.is_encrypted:
             try:
                 decrypted = reader.decrypt("")
@@ -186,7 +439,6 @@ def extract_pdf_pages(file_bytes: bytes, filename: str) -> ExtractionResult:
                 char_count = len(cleaned_text)
                 total_chars += char_count
 
-                # Extract potential headings and tables
                 lines = cleaned_text.splitlines()
                 headings = [line.strip() for line in lines if len(line.strip()) < 80 and line.strip().isupper() and len(line.strip()) > 3][:5]
                 _, tables = detect_and_format_tables(cleaned_text)
