@@ -173,6 +173,42 @@ export async function deleteDocumentById(docId) {
   return res.json();
 }
 
+// ---------------- COLLECTIONS ----------------
+export async function fetchCollections() {
+  const res = await fetch('/api/documents/collections', { headers: getHeaders() });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function createCollection(collectionData) {
+  const res = await fetch('/api/documents/collections', {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(collectionData),
+  });
+  if (!res.ok) throw new Error('Failed to create collection');
+  return res.json();
+}
+
+export async function updateCollection(colId, updateData) {
+  const res = await fetch(`/api/documents/collections/${colId}`, {
+    method: 'PATCH',
+    headers: getHeaders(),
+    body: JSON.stringify(updateData),
+  });
+  if (!res.ok) throw new Error('Failed to update collection');
+  return res.json();
+}
+
+export async function deleteCollection(colId) {
+  const res = await fetch(`/api/documents/collections/${colId}`, {
+    method: 'DELETE',
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to delete collection');
+  return res.json();
+}
+
 // ---------------- SESSIONS & MESSAGES ----------------
 export async function fetchChatSessions() {
   const res = await fetch('/api/chat/sessions', { headers: getHeaders() });

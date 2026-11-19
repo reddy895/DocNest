@@ -19,6 +19,33 @@ class DocumentUpdateRequest(BaseModel):
     workspace_id: Optional[str] = None
 
 
+class CollectionCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    description: Optional[str] = ""
+    color: Optional[str] = "#E5B83D"
+    document_ids: List[str] = Field(default_factory=list)
+
+
+class CollectionUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    color: Optional[str] = None
+    document_ids: Optional[List[str]] = None
+
+
+class CollectionInfo(BaseModel):
+    id: str
+    user_id: str
+    workspace_id: str
+    name: str
+    description: str
+    color: str
+    document_ids: List[str]
+    document_count: int
+    created_at: str
+    updated_at: str
+
+
 class DocumentInfo(BaseModel):
     """Metadata for an uploaded document."""
     doc_id: str

@@ -36,8 +36,8 @@ def test_chat_suggestions_endpoint(client):
     assert len(data["suggestions"]) > 0
 
 def test_upload_invalid_file(client):
-    # Upload non-pdf file
-    files = {"file": ("test.txt", b"plain text content", "text/plain")}
+    # Upload unsupported file format
+    files = {"file": ("test.sh", b"#!/bin/bash\necho hello", "application/x-sh")}
     response = client.post("/api/documents/upload", files=files)
     assert response.status_code in [400, 422]
 

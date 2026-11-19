@@ -1,3 +1,4 @@
+import json
 import uuid
 import logging
 from datetime import datetime, timezone
@@ -7,8 +8,8 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, status, Depends,
 from fastapi.responses import FileResponse
 
 from backend.app.services.sample_generator import generate_sample_pdfs, settings as sample_settings
-from backend.app.services.validator import validate_pdf_content, compute_sha256
-from backend.app.services.pdf_extractor import extract_pdf_pages
+from backend.app.services.validator import validate_document_file, validate_pdf_content, compute_sha256
+from backend.app.services.pdf_extractor import extract_pdf_pages, extract_document_content
 from backend.app.services.chunker import create_document_chunks
 from backend.app.services.chroma_service import get_chroma_service
 from backend.app.services.ingestion_queue import process_document_ingestion
@@ -19,6 +20,9 @@ from backend.app.models.schemas import (
     DeleteDocumentResponse,
     DocumentStatusResponse,
     DocumentUpdateRequest,
+    CollectionCreateRequest,
+    CollectionUpdateRequest,
+    CollectionInfo,
 )
 from backend.app.core.config import settings
 from backend.app.core.database import get_db_connection
@@ -467,14 +471,14 @@ async def upload_document(
     async_processing: bool = Query(False, description="Run ingestion asynchronously in background queue"),
 ):
     """
-    Upload, validate, extract, chunk, and index a PDF document.
-    Enforces magic bytes verification, deduplication, SQLite recording, and page-by-page metadata.
+    Upload, validate, extract, chunk, and index any supported document (PDF, DOCX, TXT, MD, CSV).
+    Enforces format validation, deduplication, SQLite recording, and page-by-page metadata.
     """
     filename = file.filename or "document.pdf"
     content = await file.read()
 
-    # 1. Validation
-    validation = validate_pdf_content(filename, content)
+    # 1. Multi-format Validation
+    validation = validate_document_file(filename, content)
     if not validation.is_valid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -502,7 +506,8 @@ async def upload_document(
 
     doc_id = f"doc_{uuid.uuid4().hex[:12]}"
     now_iso = datetime.now(timezone.utc).isoformat()
-    file_path = settings.DOCUMENTS_DIR / f"{doc_id}.pdf"
+    ext = Path(validation.filename).suffix.lower() or ".pdf"
+    file_path = settings.DOCUMENTS_DIR / f"{doc_id}{ext}"
     with open(file_path, "wb") as f:
         f.write(content)
 
@@ -587,3 +592,146 @@ async def upload_document(
         progress_pct=100,
         is_scanned=doc_record.is_scanned if doc_record else False,
     )
+
+
+# ---------------- COLLECTIONS MANAGEMENT ----------------
+
+@router.get("/collections", response_model=List[CollectionInfo])
+async def list_document_collections():
+    """List all research document collections / binders."""
+    async with get_db_connection() as db:
+        cursor = await db.execute(
+            """
+            SELECT id, user_id, workspace_id, name, description, color, document_ids, created_at, updated_at
+            FROM document_collections
+            ORDER BY updated_at DESC
+            """
+        )
+        rows = await cursor.fetchall()
+        collections = []
+        for r in rows:
+            try:
+                doc_ids = json.loads(r["document_ids"])
+            except Exception:
+                doc_ids = []
+            collections.append(
+                CollectionInfo(
+                    id=r["id"],
+                    user_id=r["user_id"],
+                    workspace_id=r["workspace_id"],
+                    name=r["name"],
+                    description=r["description"] or "",
+                    color=r["color"] or "#E5B83D",
+                    document_ids=doc_ids,
+                    document_count=len(doc_ids),
+                    created_at=r["created_at"],
+                    updated_at=r["updated_at"],
+                )
+            )
+        return collections
+
+
+@router.post("/collections", response_model=CollectionInfo, status_code=status.HTTP_201_CREATED)
+async def create_document_collection(payload: CollectionCreateRequest):
+    """Create a new research collection / binder."""
+    col_id = f"col_{uuid.uuid4().hex[:10]}"
+    now_iso = datetime.now(timezone.utc).isoformat()
+    doc_ids_json = json.dumps(payload.document_ids or [])
+
+    async with get_db_connection() as db:
+        await db.execute(
+            """
+            INSERT INTO document_collections (
+                id, user_id, workspace_id, name, description, color, document_ids, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                col_id,
+                "user_default_local",
+                "Default Workspace",
+                payload.name.strip(),
+                payload.description or "",
+                payload.color or "#E5B83D",
+                doc_ids_json,
+                now_iso,
+                now_iso,
+            ),
+        )
+        await db.commit()
+
+    return CollectionInfo(
+        id=col_id,
+        user_id="user_default_local",
+        workspace_id="Default Workspace",
+        name=payload.name.strip(),
+        description=payload.description or "",
+        color=payload.color or "#E5B83D",
+        document_ids=payload.document_ids or [],
+        document_count=len(payload.document_ids or []),
+        created_at=now_iso,
+        updated_at=now_iso,
+    )
+
+
+@router.patch("/collections/{col_id}", response_model=CollectionInfo)
+async def update_document_collection(col_id: str, payload: CollectionUpdateRequest):
+    """Update name, description, color or document membership of a collection."""
+    async with get_db_connection() as db:
+        cursor = await db.execute("SELECT * FROM document_collections WHERE id = ?", (col_id,))
+        row = await cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Collection not found")
+
+        updates = []
+        params = []
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        if payload.name is not None:
+            updates.append("name = ?")
+            params.append(payload.name.strip())
+        if payload.description is not None:
+            updates.append("description = ?")
+            params.append(payload.description)
+        if payload.color is not None:
+            updates.append("color = ?")
+            params.append(payload.color)
+        if payload.document_ids is not None:
+            updates.append("document_ids = ?")
+            params.append(json.dumps(payload.document_ids))
+
+        updates.append("updated_at = ?")
+        params.append(now_iso)
+        params.append(col_id)
+
+        query = f"UPDATE document_collections SET {', '.join(updates)} WHERE id = ?"
+        await db.execute(query, tuple(params))
+        await db.commit()
+
+        cursor = await db.execute("SELECT * FROM document_collections WHERE id = ?", (col_id,))
+        updated = await cursor.fetchone()
+        try:
+            doc_ids = json.loads(updated["document_ids"])
+        except Exception:
+            doc_ids = []
+
+        return CollectionInfo(
+            id=updated["id"],
+            user_id=updated["user_id"],
+            workspace_id=updated["workspace_id"],
+            name=updated["name"],
+            description=updated["description"] or "",
+            color=updated["color"] or "#E5B83D",
+            document_ids=doc_ids,
+            document_count=len(doc_ids),
+            created_at=updated["created_at"],
+            updated_at=updated["updated_at"],
+        )
+
+
+@router.delete("/collections/{col_id}")
+async def delete_document_collection(col_id: str):
+    """Delete a research collection."""
+    async with get_db_connection() as db:
+        await db.execute("DELETE FROM document_collections WHERE id = ?", (col_id,))
+        await db.commit()
+    return {"success": True, "collection_id": col_id, "message": "Collection deleted successfully"}
