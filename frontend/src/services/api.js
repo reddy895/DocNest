@@ -196,6 +196,16 @@ export async function fetchSessionMessages(sessionId) {
   return res.json();
 }
 
+export async function updateChatSession(sessionId, updateData) {
+  const res = await fetch(`/api/chat/sessions/${sessionId}`, {
+    method: 'PATCH',
+    headers: getHeaders(),
+    body: JSON.stringify(updateData),
+  });
+  if (!res.ok) throw new Error('Failed to update session');
+  return res.json();
+}
+
 export async function deleteChatSession(sessionId) {
   const res = await fetch(`/api/chat/sessions/${sessionId}`, {
     method: 'DELETE',

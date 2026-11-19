@@ -42,8 +42,60 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
     user_id TEXT NOT NULL,
     workspace_id TEXT NOT NULL,
     title TEXT NOT NULL,
+    is_pinned BOOLEAN NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS document_collections (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    workspace_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    color TEXT NOT NULL DEFAULT '#E5B83D',
+    document_ids TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS research_notes (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    workspace_id TEXT NOT NULL,
+    session_id TEXT,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    tags TEXT NOT NULL DEFAULT '[]',
+    source_references TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS flashcards (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    workspace_id TEXT NOT NULL,
+    deck_name TEXT NOT NULL DEFAULT 'General',
+    question TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    explanation TEXT NOT NULL DEFAULT '',
+    source_doc_id TEXT,
+    source_page INTEGER DEFAULT 1,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS quizzes (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    workspace_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    questions_json TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL,
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -109,6 +161,11 @@ class DatabaseManager:
         logger.info(f"Initializing SQLite database schema at {self.db_path}...")
         async with aiosqlite.connect(self.db_path) as db:
             await db.executescript(SCHEMA_SQL)
+            try:
+                await db.execute("ALTER TABLE chat_sessions ADD COLUMN is_pinned BOOLEAN NOT NULL DEFAULT 0;")
+                await db.commit()
+            except Exception:
+                pass
             await db.execute("""
             INSERT OR IGNORE INTO users (id, email, username, password_hash, workspace_name, created_at)
             VALUES ('user_default_local', 'local@docnest.ai', 'Local User', 'local_dev_only', 'Default Workspace', datetime('now'))

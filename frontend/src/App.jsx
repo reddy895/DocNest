@@ -1,19 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import AppLayout from './layouts/AppLayout';
-import Dashboard from './pages/Dashboard';
 import DocumentLibrary from './pages/DocumentLibrary';
 import ChatWorkspace from './pages/ChatWorkspace';
 import Settings from './pages/Settings';
 import UploadModal from './components/UploadModal';
 import DocumentViewer from './components/DocumentViewer';
-import { fetchHealth, fetchDocuments, deleteDocumentById } from './services/api';
+import {
+  fetchHealth,
+  fetchDocuments,
+  deleteDocumentById,
+  fetchChatSessions,
+  createChatSession,
+  updateChatSession,
+  deleteChatSession,
+} from './services/api';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  // Conversation-first experience
+  const [activeTab, setActiveTab] = useState('chat');
   const [documents, setDocuments] = useState([]);
   const [totalChunks, setTotalChunks] = useState(0);
   const [systemStatus, setSystemStatus] = useState(null);
   const [selectedDocId, setSelectedDocId] = useState(null);
+
+  // Persistent Sessions
+  const [sessions, setSessions] = useState([]);
+  const [activeSessionId, setActiveSessionId] = useState(null);
 
   // Modals & Overlays
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -23,14 +35,20 @@ export default function App() {
   // Initial data loading
   const loadInitialData = async () => {
     try {
-      const [healthData, docsData] = await Promise.all([
+      const [healthData, docsData, sessionsData] = await Promise.all([
         fetchHealth().catch((e) => ({ status: 'error', error: e.message })),
         fetchDocuments().catch(() => ({ total_documents: 0, total_chunks: 0, documents: [] })),
+        fetchChatSessions().catch(() => []),
       ]);
 
       setSystemStatus(healthData);
       setDocuments(docsData.documents || []);
       setTotalChunks(docsData.total_chunks || 0);
+      setSessions(sessionsData || []);
+
+      if (sessionsData && sessionsData.length > 0 && !activeSessionId) {
+        setActiveSessionId(sessionsData[0].id);
+      }
     } catch (err) {
       console.error('Data initialization error:', err);
     }
@@ -40,7 +58,7 @@ export default function App() {
     loadInitialData();
   }, []);
 
-  const handleUploadSuccess = (newDoc) => {
+  const handleUploadSuccess = () => {
     loadInitialData();
   };
 
@@ -66,6 +84,52 @@ export default function App() {
     setActiveTab('chat');
   };
 
+  // Session Handlers
+  const handleNewSession = async () => {
+    try {
+      const newSession = await createChatSession('New Research');
+      setSessions((prev) => [newSession, ...prev]);
+      setActiveSessionId(newSession.id);
+    } catch (err) {
+      console.error('Failed to create session:', err);
+    }
+  };
+
+  const handleRenameSession = async (sessionId, newTitle) => {
+    try {
+      const updated = await updateChatSession(sessionId, { title: newTitle });
+      setSessions((prev) => prev.map((s) => (s.id === sessionId ? { ...s, title: updated.title } : s)));
+    } catch (err) {
+      console.error('Failed to rename session:', err);
+    }
+  };
+
+  const handlePinSession = async (sessionId, isPinned) => {
+    try {
+      const updated = await updateChatSession(sessionId, { is_pinned: isPinned });
+      setSessions((prev) =>
+        prev
+          .map((s) => (s.id === sessionId ? { ...s, is_pinned: updated.is_pinned } : s))
+          .sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0))
+      );
+    } catch (err) {
+      console.error('Failed to pin session:', err);
+    }
+  };
+
+  const handleDeleteSession = async (sessionId) => {
+    try {
+      await deleteChatSession(sessionId);
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      if (activeSessionId === sessionId) {
+        const remaining = sessions.filter((s) => s.id !== sessionId);
+        setActiveSessionId(remaining[0]?.id || null);
+      }
+    } catch (err) {
+      console.error('Failed to delete session:', err);
+    }
+  };
+
   return (
     <>
       <AppLayout
@@ -73,14 +137,25 @@ export default function App() {
         setActiveTab={setActiveTab}
         systemStatus={systemStatus}
         onOpenUpload={() => setIsUploadOpen(true)}
+        sessions={sessions}
+        activeSessionId={activeSessionId}
+        onSelectSession={(id) => setActiveSessionId(id)}
+        onNewSession={handleNewSession}
+        onRenameSession={handleRenameSession}
+        onPinSession={handlePinSession}
+        onDeleteSession={handleDeleteSession}
       >
-        {activeTab === 'dashboard' && (
-          <Dashboard
+        {activeTab === 'chat' && (
+          <ChatWorkspace
             documents={documents}
-            totalChunks={totalChunks}
-            systemStatus={systemStatus}
-            onNavigate={(tab) => setActiveTab(tab)}
-            onOpenUpload={() => setIsUploadOpen(true)}
+            selectedDocId={selectedDocId}
+            onSelectDocId={setSelectedDocId}
+            onOpenViewer={handleOpenViewer}
+            activeSessionId={activeSessionId}
+            onSessionCreated={(newId) => {
+              setActiveSessionId(newId);
+              loadInitialData();
+            }}
           />
         )}
 
@@ -91,15 +166,6 @@ export default function App() {
             onViewDocument={(doc) => handleOpenViewer(doc, 1)}
             onQueryDocument={handleQueryDocument}
             onOpenUpload={() => setIsUploadOpen(true)}
-          />
-        )}
-
-        {activeTab === 'chat' && (
-          <ChatWorkspace
-            documents={documents}
-            selectedDocId={selectedDocId}
-            onSelectDocId={setSelectedDocId}
-            onOpenViewer={handleOpenViewer}
           />
         )}
 

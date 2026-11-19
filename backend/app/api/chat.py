@@ -13,6 +13,7 @@ from backend.app.models.schemas import (
     StreamChatRequest,
     Citation,
     CreateSessionRequest,
+    UpdateSessionRequest,
     ChatSessionInfo,
     ChatMessageInfo,
     FeedbackRequest,
@@ -208,17 +209,19 @@ async def create_chat_session(payload: CreateSessionRequest):
 
 @router.get("/sessions", response_model=List[ChatSessionInfo])
 async def list_chat_sessions():
-    """List all chat sessions ordered by latest activity."""
+    """List all chat sessions ordered by pinned status and latest activity."""
     async with get_db_connection() as db:
         cursor = await db.execute(
             """
-            SELECT s.id, s.user_id, s.workspace_id, s.title, s.created_at, s.updated_at,
+            SELECT s.id, s.user_id, s.workspace_id, s.title,
+                   COALESCE(s.is_pinned, 0) as is_pinned,
+                   s.created_at, s.updated_at,
                    COUNT(m.id) as msg_count
             FROM chat_sessions s
             LEFT JOIN chat_messages m ON s.id = m.session_id
             WHERE s.user_id = 'user_default_local'
             GROUP BY s.id
-            ORDER BY s.updated_at DESC
+            ORDER BY is_pinned DESC, s.updated_at DESC
             """
         )
         rows = await cursor.fetchall()
@@ -228,12 +231,68 @@ async def list_chat_sessions():
                 user_id=r["user_id"],
                 workspace_id=r["workspace_id"],
                 title=r["title"],
+                is_pinned=bool(r["is_pinned"]),
                 created_at=r["created_at"],
                 updated_at=r["updated_at"],
                 message_count=r["msg_count"],
             )
             for r in rows
         ]
+
+
+@router.patch("/sessions/{session_id}", response_model=ChatSessionInfo)
+async def update_chat_session(session_id: str, payload: UpdateSessionRequest):
+    """Rename or toggle pin status for a research conversation."""
+    async with get_db_connection() as db:
+        cursor = await db.execute("SELECT * FROM chat_sessions WHERE id = ?", (session_id,))
+        row = await cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        updates = []
+        params = []
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        if payload.title is not None:
+            updates.append("title = ?")
+            params.append(payload.title.strip() or "Untitled Research")
+        if payload.is_pinned is not None:
+            updates.append("is_pinned = ?")
+            params.append(1 if payload.is_pinned else 0)
+
+        updates.append("updated_at = ?")
+        params.append(now_iso)
+        params.append(session_id)
+
+        query = f"UPDATE chat_sessions SET {', '.join(updates)} WHERE id = ?"
+        await db.execute(query, tuple(params))
+        await db.commit()
+
+        # Fetch updated
+        cursor = await db.execute(
+            """
+            SELECT s.id, s.user_id, s.workspace_id, s.title,
+                   COALESCE(s.is_pinned, 0) as is_pinned,
+                   s.created_at, s.updated_at,
+                   COUNT(m.id) as msg_count
+            FROM chat_sessions s
+            LEFT JOIN chat_messages m ON s.id = m.session_id
+            WHERE s.id = ?
+            GROUP BY s.id
+            """,
+            (session_id,),
+        )
+        updated = await cursor.fetchone()
+        return ChatSessionInfo(
+            id=updated["id"],
+            user_id=updated["user_id"],
+            workspace_id=updated["workspace_id"],
+            title=updated["title"],
+            is_pinned=bool(updated["is_pinned"]),
+            created_at=updated["created_at"],
+            updated_at=updated["updated_at"],
+            message_count=updated["msg_count"],
+        )
 
 
 @router.get("/sessions/{session_id}/messages", response_model=List[ChatMessageInfo])

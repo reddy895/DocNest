@@ -85,9 +85,15 @@ class ChatSessionInfo(BaseModel):
     user_id: str
     workspace_id: str
     title: str
+    is_pinned: bool = False
     created_at: str
     updated_at: str
     message_count: int = 0
+
+
+class UpdateSessionRequest(BaseModel):
+    title: Optional[str] = None
+    is_pinned: Optional[bool] = None
 
 
 class ChatMessageInfo(BaseModel):
