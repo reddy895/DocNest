@@ -282,3 +282,97 @@ export async function fetchEvalRunDetail(runId) {
   if (!res.ok) throw new Error('Failed to fetch evaluation run details');
   return res.json();
 }
+
+// ---------------- RESEARCH STUDIO ----------------
+export async function summarizeResearch(payload) {
+  const res = await fetch('/api/research/summarize', {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Summarization failed' }));
+    throw new Error(err.detail || 'Summarization failed');
+  }
+  return res.json();
+}
+
+export async function compareDocuments(payload) {
+  const res = await fetch('/api/research/compare', {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Comparison failed' }));
+    throw new Error(err.detail || 'Comparison failed');
+  }
+  return res.json();
+}
+
+export async function generateResearchQuestions(payload) {
+  const res = await fetch('/api/research/generate-questions', {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Failed to generate research questions');
+  return res.json();
+}
+
+export async function generateResearchQuiz(payload) {
+  const res = await fetch('/api/research/generate-quiz', {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Failed to generate quiz');
+  return res.json();
+}
+
+export async function generateResearchFlashcards(payload) {
+  const res = await fetch('/api/research/generate-flashcards', {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Failed to generate flashcards');
+  return res.json();
+}
+
+export async function fetchResearchNotes(sessionId = null) {
+  const url = sessionId ? `/api/research/notes?session_id=${sessionId}` : '/api/research/notes';
+  const res = await fetch(url, { headers: getHeaders() });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function createResearchNote(payload) {
+  const res = await fetch('/api/research/notes', {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Failed to create research note');
+  return res.json();
+}
+
+export async function updateResearchNote(noteId, payload) {
+  const res = await fetch(`/api/research/notes/${noteId}`, {
+    method: 'PATCH',
+    headers: getHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error('Failed to update research note');
+  return res.json();
+}
+
+export async function deleteResearchNote(noteId) {
+  const res = await fetch(`/api/research/notes/${noteId}`, {
+    method: 'DELETE',
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to delete research note');
+  return true;
+}
+

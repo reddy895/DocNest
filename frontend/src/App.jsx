@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AppLayout from './layouts/AppLayout';
 import DocumentLibrary from './pages/DocumentLibrary';
 import ChatWorkspace from './pages/ChatWorkspace';
+import ResearchStudio from './pages/ResearchStudio';
 import Settings from './pages/Settings';
 import UploadModal from './components/UploadModal';
 import DocumentViewer from './components/DocumentViewer';
@@ -169,6 +170,13 @@ export default function App() {
             onViewDocument={(doc) => handleOpenViewer(doc, 1)}
             onQueryDocument={handleQueryDocument}
             onOpenUpload={() => setIsUploadOpen(true)}
+          />
+        )}
+
+        {activeTab === 'research' && (
+          <ResearchStudio
+            documents={documents}
+            onOpenViewer={handleOpenViewer}
           />
         )}
 
