@@ -62,7 +62,12 @@ class Settings(BaseSettings):
 
     # File Upload Security Constraints
     MAX_FILE_SIZE_MB: int = 50
-    ALLOWED_EXTENSIONS: List[str] = [".pdf", ".docx", ".txt", ".md"]
+    ALLOWED_EXTENSIONS: List[str] = [".pdf", ".docx", ".txt", ".md", ".csv"]
+
+    # MongoDB Integration (Optional Application Layer)
+    MONGO_URI: str = "mongodb://localhost:27017"
+    MONGO_DB_NAME: str = "docnest"
+    MONGO_ENABLED: bool = False
 
     def ensure_directories(self) -> None:
         """Create storage directories if they do not exist."""
