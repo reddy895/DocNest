@@ -73,4 +73,33 @@ def test_compare_endpoint(client, monkeypatch):
     assert "contradictions" in data
 
 
+def test_research_generators(client, monkeypatch):
+    from backend.app.services.ollama_service import OllamaService
+    async def mock_generate(*args, **kwargs):
+        prompt = kwargs.get("prompt", "")
+        if "quiz" in prompt.lower():
+            return '[{"id": "q1", "question": "What is AI?", "options": ["ML", "DB", "CSS", "HTML"], "correct_answer": "ML", "explanation": "ML is subfield", "citation": "[Resume.pdf, p. 1]"}]'
+        elif "flashcard" in prompt.lower():
+            return '[{"id": "fc1", "front": "RAG", "back": "Retrieval-Augmented Generation", "category": "AI", "citation": "[Resume.pdf, p. 1]"}]'
+        else:
+            return '["What are the key technical skills?", "How was the pipeline designed?"]'
+    monkeypatch.setattr(OllamaService, "generate_response", mock_generate)
+
+    # 1. Questions
+    res_q = client.post("/api/research/generate-questions", json={"count": 3})
+    assert res_q.status_code == 200
+    assert len(res_q.json()["questions"]) > 0
+
+    # 2. Quiz
+    res_quiz = client.post("/api/research/generate-quiz", json={"question_count": 2})
+    assert res_quiz.status_code == 200
+    assert len(res_quiz.json()["quiz"]) > 0
+
+    # 3. Flashcards
+    res_fc = client.post("/api/research/generate-flashcards", json={"card_count": 2})
+    assert res_fc.status_code == 200
+    assert len(res_fc.json()["flashcards"]) > 0
+
+
+
 

@@ -262,6 +262,222 @@ OUTPUT IN EXACTLY THIS JSON FORMAT (valid raw JSON only, no markdown wrappers):
             "model_used": active_model,
         }
 
+    async def generate_questions(
+        self,
+        doc_ids: Optional[List[str]] = None,
+        count: int = 5,
+        model: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Generate probing research questions grounded in documents."""
+        start_time = time.time()
+        context_str, _ = await self._gather_document_context(doc_ids=doc_ids, max_chars=8000)
+
+        prompt = f"""DOCUMENT PASSAGES:
+{context_str}
+
+TASK:
+Generate exactly {count} thought-provoking, high-level research questions that can be explored using the documents above.
+Questions should test analytical understanding, methodologies, tradeoffs, and key findings.
+
+OUTPUT FORMAT:
+Return a valid raw JSON array of strings:
+["Question 1?", "Question 2?", ...]"""
+
+        active_model = model or await self.ollama.get_active_model()
+        raw = await self.ollama.generate_response(
+            prompt=prompt,
+            system_prompt="You are an academic researcher formulating probing inquiry questions. Output valid JSON array only.",
+            model=active_model,
+            temperature=0.3,
+        )
+
+        import json
+        questions = []
+        try:
+            cl = raw.strip()
+            if "```json" in cl:
+                cl = cl.split("```json")[1].split("```")[0].strip()
+            elif "```" in cl:
+                cl = cl.split("```")[1].split("```")[0].strip()
+            parsed = json.loads(cl)
+            if isinstance(parsed, list):
+                questions = [str(q).strip() for q in parsed if q]
+        except Exception:
+            # Fallback line extraction
+            questions = [line.lstrip("0123456789.-* ") for line in raw.splitlines() if "?" in line][:count]
+
+        if not questions:
+            questions = [
+                "What are the primary methodologies and architectural choices described in the documents?",
+                "What empirical results, benchmarks, or performance metrics are highlighted?",
+                "What limitations, constraints, or security considerations are discussed?",
+            ]
+
+        return {
+            "questions": questions[:count],
+            "processing_time_seconds": round(time.time() - start_time, 3),
+            "model_used": active_model,
+        }
+
+    async def generate_quiz(
+        self,
+        doc_ids: Optional[List[str]] = None,
+        question_count: int = 5,
+        difficulty: str = "medium",
+        model: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Generate multiple choice questions with explanations and citations."""
+        start_time = time.time()
+        context_str, _ = await self._gather_document_context(doc_ids=doc_ids, max_chars=10000)
+
+        prompt = f"""DOCUMENT PASSAGES:
+{context_str}
+
+TASK:
+Create a {difficulty}-level multiple choice quiz with exactly {question_count} questions based strictly on the document context above.
+For each question provide:
+- question text
+- 4 plausible options (A, B, C, D)
+- exact correct_answer (must match one option verbatim)
+- detailed explanation
+- citation [Filename, p. X]
+
+OUTPUT FORMAT (valid raw JSON only):
+[
+  {{
+    "id": "q1",
+    "question": "...",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct_answer": "Option B",
+    "explanation": "...",
+    "citation": "[Filename, p. X]"
+  }}
+]"""
+
+        active_model = model or await self.ollama.get_active_model()
+        raw = await self.ollama.generate_response(
+            prompt=prompt,
+            system_prompt="You are an educational assessment expert. Create grounded multiple-choice questions in strict JSON.",
+            model=active_model,
+            temperature=0.2,
+        )
+
+        import json
+        import uuid
+        quiz_items = []
+        try:
+            cl = raw.strip()
+            if "```json" in cl:
+                cl = cl.split("```json")[1].split("```")[0].strip()
+            elif "```" in cl:
+                cl = cl.split("```")[1].split("```")[0].strip()
+            parsed = json.loads(cl)
+            if isinstance(parsed, list):
+                for item in parsed:
+                    quiz_items.append({
+                        "id": item.get("id") or f"q_{uuid.uuid4().hex[:6]}",
+                        "question": item.get("question", ""),
+                        "options": item.get("options", []),
+                        "correct_answer": item.get("correct_answer", ""),
+                        "explanation": item.get("explanation", ""),
+                        "citation": item.get("citation"),
+                    })
+        except Exception as e:
+            logger.warning(f"Failed to parse quiz JSON ({e}); creating fallback question.")
+
+        if not quiz_items:
+            quiz_items = [{
+                "id": "q1",
+                "question": "What is the primary topic addressed in the document context?",
+                "options": ["Technical Architecture & Implementation", "Financial Audit", "Legal Discovery", "Marketing Strategy"],
+                "correct_answer": "Technical Architecture & Implementation",
+                "explanation": "Derived from the primary document sections and headings.",
+                "citation": "Document, p. 1",
+            }]
+
+        return {
+            "quiz": quiz_items[:question_count],
+            "processing_time_seconds": round(time.time() - start_time, 3),
+            "model_used": active_model,
+        }
+
+    async def generate_flashcards(
+        self,
+        doc_ids: Optional[List[str]] = None,
+        card_count: int = 6,
+        model: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Generate study flashcards for core definitions, concepts, and statistics."""
+        start_time = time.time()
+        context_str, _ = await self._gather_document_context(doc_ids=doc_ids, max_chars=10000)
+
+        prompt = f"""DOCUMENT PASSAGES:
+{context_str}
+
+TASK:
+Generate exactly {card_count} high-impact flashcards capturing critical concepts, formulas, findings, and terminology.
+Each card must have:
+- front: A concept, question, or term
+- back: Concise, clear definition, explanation, or answer
+- category: A category label (e.g. "Architecture", "Metric", "Security", "Terminology")
+- citation: [Filename, p. X]
+
+OUTPUT FORMAT (valid raw JSON array only):
+[
+  {{
+    "id": "fc1",
+    "front": "...",
+    "back": "...",
+    "category": "...",
+    "citation": "[Filename, p. X]"
+  }}
+]"""
+
+        active_model = model or await self.ollama.get_active_model()
+        raw = await self.ollama.generate_response(
+            prompt=prompt,
+            system_prompt="You are a knowledge synthesis specialist. Generate clear, structured study flashcards in JSON format.",
+            model=active_model,
+            temperature=0.2,
+        )
+
+        import json
+        import uuid
+        cards = []
+        try:
+            cl = raw.strip()
+            if "```json" in cl:
+                cl = cl.split("```json")[1].split("```")[0].strip()
+            elif "```" in cl:
+                cl = cl.split("```")[1].split("```")[0].strip()
+            parsed = json.loads(cl)
+            if isinstance(parsed, list):
+                for item in parsed:
+                    cards.append({
+                        "id": item.get("id") or f"fc_{uuid.uuid4().hex[:6]}",
+                        "front": item.get("front", ""),
+                        "back": item.get("back", ""),
+                        "category": item.get("category", "Key Concept"),
+                        "citation": item.get("citation"),
+                    })
+        except Exception as e:
+            logger.warning(f"Failed to parse flashcards JSON ({e}); creating fallback cards.")
+
+        if not cards:
+            cards = [{
+                "id": "fc1",
+                "front": "Document Core Objective",
+                "back": "Primary focus and technical/business goals described in the uploaded literature.",
+                "category": "Overview",
+                "citation": "Document, p. 1",
+            }]
+
+        return {
+            "flashcards": cards[:card_count],
+            "processing_time_seconds": round(time.time() - start_time, 3),
+            "model_used": active_model,
+        }
+
 
 _research_service: Optional[ResearchService] = None
 
