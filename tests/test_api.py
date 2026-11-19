@@ -58,3 +58,19 @@ def test_summarize_endpoint(client, monkeypatch):
     assert "sources_used" in data
 
 
+def test_compare_endpoint(client, monkeypatch):
+    from backend.app.services.ollama_service import OllamaService
+    async def mock_generate(*args, **kwargs):
+        return '{"overview": "Comparison synthesis", "agreements": ["Both support AI"], "contradictions": [], "matrix": "| A | B |\\n|---|---|"}'
+    monkeypatch.setattr(OllamaService, "generate_response", mock_generate)
+
+    payload = {"doc_ids": ["doc_4617cec4d59c", "doc_b8359c5aacc5"]}
+    response = client.post("/api/research/compare", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert "overview" in data
+    assert "agreements" in data
+    assert "contradictions" in data
+
+
+

@@ -162,6 +162,106 @@ SUMMARY:"""
             "model_used": active_model,
         }
 
+    async def compare_documents(
+        self,
+        doc_ids: List[str],
+        comparison_aspects: Optional[List[str]] = None,
+        model: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Conduct deep multi-document comparative analysis identifying:
+        - Common core themes and agreements
+        - Critical divergences and contradictions
+        - Structured comparison matrix table
+        """
+        start_time = time.time()
+        corpus = self.bm25.corpus or {}
+        doc_groups: Dict[str, List[Dict[str, Any]]] = {}
+
+        for cid, info in corpus.items():
+            did = info.get("doc_id")
+            if did in doc_ids:
+                doc_groups.setdefault(did, []).append(info)
+
+        # Fallback to Chroma if not populated
+        if not doc_groups and self.chroma._collection:
+            for did in doc_ids:
+                raw = self.chroma._collection.get(where={"doc_id": did}, limit=25)
+                for cid, doc, meta in zip(raw.get("ids", []), raw.get("documents", []), raw.get("metadatas", [])):
+                    doc_groups.setdefault(did, []).append({
+                        "filename": meta.get("filename", "Document"),
+                        "page_number": meta.get("page_number", 1),
+                        "text": doc,
+                        "section_heading": meta.get("section_heading"),
+                    })
+
+        doc_blocks = []
+        doc_names = []
+        for did, items in doc_groups.items():
+            fname = items[0].get("filename", did) if items else did
+            doc_names.append(fname)
+            sample_text = "\n".join([f"[{fname}, p.{it.get('page_number', 1)}]: {it.get('text', '')[:400]}" for it in items[:10]])
+            doc_blocks.append(f"=== DOCUMENT: {fname} ===\n{sample_text}\n")
+
+        full_doc_context = "\n".join(doc_blocks)
+        aspects_str = ", ".join(comparison_aspects) if comparison_aspects else "methodology, key claims, metrics, scope, findings"
+
+        prompt = f"""You are DocNest's Multi-Document Comparative Research Engine.
+Perform a strict comparative analysis between the documents provided below.
+Compare them on these aspects: {aspects_str}.
+
+DOCUMENT DATA:
+{full_doc_context}
+
+OUTPUT IN EXACTLY THIS JSON FORMAT (valid raw JSON only, no markdown wrappers):
+{{
+  "overview": "Brief synthesis comparing scope and primary goals of the documents",
+  "agreements": ["Shared finding or consensus point 1 [DocA, p. X; DocB, p. Y]", "Consensus point 2"],
+  "contradictions": ["Divergence, discrepancy, or opposing claim 1 [DocA, p. X vs DocB, p. Y]", "Divergence point 2"],
+  "matrix": "| Dimension | Document A | Document B |\\n| --- | --- | --- |\\n| Core Focus | ... | ... |\\n| Methodology | ... | ... |"
+}}"""
+
+        active_model = model or await self.ollama.get_active_model()
+        raw_res = await self.ollama.generate_response(
+            prompt=prompt,
+            system_prompt="You are a senior document intelligence analyst. Compare documents strictly and output valid JSON.",
+            model=active_model,
+            temperature=0.1,
+        )
+
+        import json
+        overview = "Comparative analysis of provided documents."
+        agreements = []
+        contradictions = []
+        matrix = ""
+
+        try:
+            cleaned_json = raw_res.strip()
+            if "```json" in cleaned_json:
+                cleaned_json = cleaned_json.split("```json")[1].split("```")[0].strip()
+            elif "```" in cleaned_json:
+                cleaned_json = cleaned_json.split("```")[1].split("```")[0].strip()
+
+            parsed = json.loads(cleaned_json)
+            overview = parsed.get("overview", overview)
+            agreements = parsed.get("agreements", [])
+            contradictions = parsed.get("contradictions", [])
+            matrix = parsed.get("matrix", "")
+        except Exception as e:
+            logger.warning(f"Could not parse LLM comparison JSON ({e}); using raw output as overview.")
+            overview = raw_res
+
+        elapsed = round(time.time() - start_time, 3)
+        return {
+            "documents_compared": doc_names or doc_ids,
+            "overview": overview,
+            "agreements": agreements,
+            "contradictions": contradictions,
+            "matrix": matrix,
+            "processing_time_seconds": elapsed,
+            "model_used": active_model,
+        }
+
 
 _research_service: Optional[ResearchService] = None
 
