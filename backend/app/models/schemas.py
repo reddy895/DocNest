@@ -176,3 +176,121 @@ class ChatQueryResponse(BaseModel):
     model_used: str
     doc_id_filtered: Optional[str] = None
 
+
+# --- Phase 4: Research Studio Schemas ---
+
+class SummarizeRequest(BaseModel):
+    doc_ids: Optional[List[str]] = None
+    summary_type: str = Field(default="executive", description="executive, detailed, key_findings, or terms")
+    model: Optional[str] = None
+
+
+class SummarizeResponse(BaseModel):
+    summary_type: str
+    content: str
+    sources_used: int
+    processing_time_seconds: float
+    model_used: str
+
+
+class CompareRequest(BaseModel):
+    doc_ids: List[str] = Field(min_length=2, description="At least two document IDs to compare")
+    comparison_aspects: Optional[List[str]] = None
+    model: Optional[str] = None
+
+
+class CompareResponse(BaseModel):
+    documents_compared: List[str]
+    overview: str
+    agreements: List[str]
+    contradictions: List[str]
+    matrix: str
+    processing_time_seconds: float
+    model_used: str
+
+
+class GenerateQuestionsRequest(BaseModel):
+    doc_ids: Optional[List[str]] = None
+    count: int = Field(default=5, ge=1, le=15)
+    model: Optional[str] = None
+
+
+class GenerateQuestionsResponse(BaseModel):
+    questions: List[str]
+    processing_time_seconds: float
+    model_used: str
+
+
+class QuizOption(BaseModel):
+    key: str
+    text: str
+
+
+class QuizItem(BaseModel):
+    id: str
+    question: str
+    options: List[str]
+    correct_answer: str
+    explanation: str
+    citation: Optional[str] = None
+
+
+class GenerateQuizRequest(BaseModel):
+    doc_ids: Optional[List[str]] = None
+    question_count: int = Field(default=5, ge=1, le=10)
+    difficulty: str = Field(default="medium", description="easy, medium, hard")
+    model: Optional[str] = None
+
+
+class GenerateQuizResponse(BaseModel):
+    quiz: List[QuizItem]
+    processing_time_seconds: float
+    model_used: str
+
+
+class FlashcardItem(BaseModel):
+    id: str
+    front: str
+    back: str
+    category: Optional[str] = "Key Concept"
+    citation: Optional[str] = None
+
+
+class GenerateFlashcardsRequest(BaseModel):
+    doc_ids: Optional[List[str]] = None
+    card_count: int = Field(default=6, ge=1, le=20)
+    model: Optional[str] = None
+
+
+class GenerateFlashcardsResponse(BaseModel):
+    flashcards: List[FlashcardItem]
+    processing_time_seconds: float
+    model_used: str
+
+
+class ResearchNoteCreateRequest(BaseModel):
+    session_id: Optional[str] = None
+    title: str = Field(min_length=1, max_length=200)
+    content: str
+    tags: List[str] = Field(default_factory=list)
+    source_citations: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class ResearchNoteUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+
+class ResearchNoteInfo(BaseModel):
+    id: str
+    user_id: str
+    session_id: Optional[str]
+    title: str
+    content: str
+    tags: List[str]
+    source_citations: List[Dict[str, Any]]
+    created_at: str
+    updated_at: str
+
+

@@ -4,7 +4,8 @@ from backend.app.main import app
 
 @pytest.fixture(scope="module")
 def client():
-    return TestClient(app)
+    with TestClient(app) as c:
+        yield c
 
 def test_root_endpoint(client):
     response = client.get("/")
@@ -40,4 +41,20 @@ def test_upload_invalid_file(client):
     files = {"file": ("test.sh", b"#!/bin/bash\necho hello", "application/x-sh")}
     response = client.post("/api/documents/upload", files=files)
     assert response.status_code in [400, 422]
+
+
+def test_summarize_endpoint(client, monkeypatch):
+    from backend.app.services.ollama_service import OllamaService
+    async def mock_generate(*args, **kwargs):
+        return "Executive Brief: Test summary with [Resume.pdf, p. 1]."
+    monkeypatch.setattr(OllamaService, "generate_response", mock_generate)
+
+    payload = {"summary_type": "executive"}
+    response = client.post("/api/research/summarize", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert "summary_type" in data
+    assert "content" in data
+    assert "sources_used" in data
+
 

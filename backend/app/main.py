@@ -12,6 +12,7 @@ from backend.app.api.settings import router as settings_router
 from backend.app.api.documents import router as documents_router
 from backend.app.api.chat import router as chat_router
 from backend.app.api.eval import router as eval_router
+from backend.app.api.research import router as research_router
 
 # Configure standard structured logging
 logging.basicConfig(
@@ -65,6 +66,7 @@ app.include_router(settings_router)
 app.include_router(documents_router)
 app.include_router(chat_router)
 app.include_router(eval_router)
+app.include_router(research_router)
 
 
 @app.middleware("http")
