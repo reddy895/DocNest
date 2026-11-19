@@ -1,89 +1,77 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  MessageSquare,
   Send,
   Loader2,
-  Trash2,
   Copy,
   Check,
   FileText,
   Filter,
   Sparkles,
   AlertCircle,
-  Plus,
-  PanelLeftClose,
-  PanelLeft,
-  ChevronRight,
-  BookOpen,
-  Eye,
-  Sliders,
+  Square,
+  RefreshCw,
   ThumbsUp,
   ThumbsDown,
+  Layers,
+  ChevronRight,
+  Sliders,
+  ExternalLink,
+  X,
+  Bookmark,
+  CheckCircle2,
 } from 'lucide-react';
+import MarkdownRenderer from '../components/MarkdownRenderer';
 import {
-  fetchChatSessions,
-  createChatSession,
   fetchSessionMessages,
-  deleteChatSession,
   recordMessageFeedback,
+  createChatSession,
 } from '../services/api';
-import RetrievalInspector from '../components/RetrievalInspector';
 
 export default function ChatWorkspace({
   documents = [],
   selectedDocId = null,
-  onSelectDocId,
-  onOpenViewer,
+  onSelectDocId = () => {},
+  onOpenViewer = () => {},
+  activeSessionId = null,
+  onSessionCreated = () => {},
 }) {
-  // Session State
-  const [sessions, setSessions] = useState([]);
-  const [currentSessionId, setCurrentSessionId] = useState(null);
-  const [sessionSidebarOpen, setSessionSidebarOpen] = useState(true);
-
-  // Chat Messages State
-  const [messages, setMessages] = useState([
-    {
-      id: 'welcome',
-      sender: 'assistant',
-      text: 'Hello! I am DocNest, your document intelligence assistant. Ask me questions about your uploaded PDFs, and I will provide answers grounded directly in document passages with exact page citations.',
-      citations: [],
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    },
-  ]);
-
+  const [messages, setMessages] = useState([]);
   const [inputQuestion, setInputQuestion] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [streamingStage, setStreamingStage] = useState('');
-  const [suggestions, setSuggestions] = useState([]);
   const [copiedId, setCopiedId] = useState(null);
-  const [selectedCitation, setSelectedCitation] = useState(null);
   const [activeTrace, setActiveTrace] = useState(null);
-  const [evidencePanelOpen, setEvidencePanelOpen] = useState(false);
+  const [activeCitations, setActiveCitations] = useState([]);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  const [rightPanelTab, setRightPanelTab] = useState('citations'); // 'citations' | 'inspector' | 'scope'
+  const [selectedDocIds, setSelectedDocIds] = useState(selectedDocId ? [selectedDocId] : []);
+  const [savedNoteSuccess, setSavedNoteSuccess] = useState(null);
 
+  const abortControllerRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const textareaRef = useRef(null);
 
-  // 1. Load Sessions on Mount
+  // Sync selectedDocId prop into selectedDocIds array
   useEffect(() => {
-    async function loadSessions() {
-      try {
-        const list = await fetchChatSessions();
-        setSessions(list);
-        if (list.length > 0 && !currentSessionId) {
-          setCurrentSessionId(list[0].id);
-        }
-      } catch (err) {
-        console.warn('Failed to load sessions:', err);
-      }
+    if (selectedDocId) {
+      setSelectedDocIds([selectedDocId]);
+    } else {
+      setSelectedDocIds([]);
     }
-    loadSessions();
-  }, []);
+  }, [selectedDocId]);
 
-  // 2. Fetch Messages when Session Changes
+  // Load message history when activeSessionId changes
   useEffect(() => {
-    if (!currentSessionId) return;
+    if (!activeSessionId) {
+      setMessages([]);
+      setActiveCitations([]);
+      setActiveTrace(null);
+      return;
+    }
+
     async function loadHistory() {
       try {
-        const history = await fetchSessionMessages(currentSessionId);
+        const history = await fetchSessionMessages(activeSessionId);
         if (history && history.length > 0) {
           setMessages(
             history.map((m) => ({
@@ -96,78 +84,28 @@ export default function ChatWorkspace({
               timestamp: new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             }))
           );
+          // Set citations from last assistant message
+          const lastAssistant = [...history].reverse().find((m) => m.sender === 'assistant');
+          if (lastAssistant) {
+            setActiveCitations(lastAssistant.citations || []);
+            setActiveTrace(lastAssistant.retrieval_trace || null);
+          }
+        } else {
+          setMessages([]);
         }
       } catch (err) {
         console.warn('Failed to load session messages:', err);
       }
     }
     loadHistory();
-  }, [currentSessionId]);
+  }, [activeSessionId]);
 
-  // 3. Dynamic Suggestions based on scope
-  useEffect(() => {
-    const fetchSuggestions = async () => {
-      try {
-        const url = selectedDocId
-          ? `/api/chat/suggestions?doc_id=${selectedDocId}`
-          : '/api/chat/suggestions';
-        const res = await fetch(url);
-        if (res.ok) {
-          const data = await res.json();
-          setSuggestions(data.suggestions || []);
-        }
-      } catch (err) {
-        console.error('Failed to load suggestions:', err);
-      }
-    };
-    fetchSuggestions();
-  }, [selectedDocId]);
-
+  // Auto-scroll on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading, streamingStage]);
 
-  // 4. Create New Session
-  const handleNewSession = async () => {
-    try {
-      const newSess = await createChatSession(`Chat ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
-      setSessions((prev) => [newSess, ...prev]);
-      setCurrentSessionId(newSess.id);
-      setMessages([
-        {
-          id: 'welcome',
-          sender: 'assistant',
-          text: 'Started a new session. What would you like to explore in your documents?',
-          citations: [],
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        },
-      ]);
-    } catch (err) {
-      console.error('Failed to create new session:', err);
-    }
-  };
-
-  // 5. Delete Session
-  const handleDeleteSession = async (e, sessId) => {
-    e.stopPropagation();
-    try {
-      await deleteChatSession(sessId);
-      const remaining = sessions.filter((s) => s.id !== sessId);
-      setSessions(remaining);
-      if (currentSessionId === sessId) {
-        if (remaining.length > 0) {
-          setCurrentSessionId(remaining[0].id);
-        } else {
-          setCurrentSessionId(null);
-          setMessages([]);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to delete session:', err);
-    }
-  };
-
-  // 6. Feedback Handler
+  // Feedback handler
   const handleFeedback = async (messageId, rating) => {
     try {
       await recordMessageFeedback(messageId, rating);
@@ -179,21 +117,35 @@ export default function ChatWorkspace({
     }
   };
 
-  // 7. Send Message / Stream
-  const handleSend = async (questionText = null) => {
-    const q = (questionText || inputQuestion).trim();
+  // Copy handler
+  const handleCopy = (id, text) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  // Stop generation
+  const handleStopGeneration = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      setIsLoading(false);
+      setStreamingStage('');
+    }
+  };
+
+  // Send or Stream question
+  const handleSend = async (overrideText = null) => {
+    const q = (overrideText || inputQuestion).trim();
     if (!q || isLoading) return;
 
-    // Ensure session exists
-    let activeSessionId = currentSessionId;
-    if (!activeSessionId) {
+    let targetSessionId = activeSessionId;
+    if (!targetSessionId) {
       try {
-        const created = await createChatSession(q.slice(0, 30) + '...');
-        setSessions((prev) => [created, ...prev]);
-        setCurrentSessionId(created.id);
-        activeSessionId = created.id;
+        const newSess = await createChatSession(q.slice(0, 32) + '...');
+        targetSessionId = newSess.id;
+        if (onSessionCreated) onSessionCreated(newSess.id);
       } catch (err) {
-        console.error('Session creation failed:', err);
+        console.error('Could not create session:', err);
       }
     }
 
@@ -207,23 +159,27 @@ export default function ChatWorkspace({
 
     setMessages((prev) => [...prev, userMsg]);
     setInputQuestion('');
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+
     setIsLoading(true);
-    setStreamingStage('Initializing hybrid retrieval...');
+    setStreamingStage('Resolving query & context...');
 
     const assistantMsgId = `ai_${Date.now()}`;
     let accumulatedTokens = '';
     let citationsFound = [];
     let latencyTrace = null;
 
+    abortControllerRef.current = new AbortController();
+
     try {
-      // Execute SSE streaming request
       const response = await fetch('/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: abortControllerRef.current.signal,
         body: JSON.stringify({
           question: q,
-          session_id: activeSessionId,
-          doc_ids: selectedDocId ? [selectedDocId] : null,
+          session_id: targetSessionId,
+          doc_ids: selectedDocIds.length > 0 ? selectedDocIds : null,
           chat_history: messages.slice(-4),
         }),
       });
@@ -236,7 +192,6 @@ export default function ChatWorkspace({
       const decoder = new TextDecoder('utf-8');
       let buffer = '';
 
-      // Initialize assistant placeholder
       setMessages((prev) => [
         ...prev,
         {
@@ -266,6 +221,7 @@ export default function ChatWorkspace({
             } else if (payload.event === 'retrieval') {
               citationsFound = payload.citations || [];
               latencyTrace = payload.trace || null;
+              setActiveCitations(citationsFound);
               setActiveTrace(latencyTrace);
               setMessages((prev) =>
                 prev.map((m) =>
@@ -284,6 +240,7 @@ export default function ChatWorkspace({
             } else if (payload.event === 'done') {
               accumulatedTokens = payload.full_text || accumulatedTokens;
               latencyTrace = payload.trace || latencyTrace;
+              setActiveCitations(citationsFound);
               setActiveTrace(latencyTrace);
               setMessages((prev) =>
                 prev.map((m) =>
@@ -299,324 +256,550 @@ export default function ChatWorkspace({
               );
             }
           } catch (e) {
-            console.warn('Error parsing SSE frame:', e);
+            console.warn('Error parsing stream chunk:', e);
           }
         }
       }
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `err_${Date.now()}`,
-          sender: 'assistant',
-          text: `Error connecting to generation service: ${err.message}`,
-          citations: [],
-          isError: true,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        },
-      ]);
+      if (err.name !== 'AbortError') {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `err_${Date.now()}`,
+            sender: 'assistant',
+            text: `Error generating response: ${err.message}`,
+            citations: [],
+            isError: true,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ]);
+      }
     } finally {
       setIsLoading(false);
       setStreamingStage('');
+      abortControllerRef.current = null;
     }
   };
 
-  const handleCopy = (id, text) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+  // Regenerate last response
+  const handleRegenerate = () => {
+    const lastUserMsg = [...messages].reverse().find((m) => m.sender === 'user');
+    if (lastUserMsg) {
+      handleSend(lastUserMsg.text);
+    }
   };
 
+  // Click citation in message or right panel
+  const handleCitationClick = ({ filename, page_number }) => {
+    const doc = documents.find(
+      (d) =>
+        d.filename.toLowerCase() === filename.toLowerCase() ||
+        d.filename.toLowerCase().includes(filename.toLowerCase())
+    );
+    if (doc) {
+      onOpenViewer(doc, page_number || 1);
+    } else if (documents.length > 0) {
+      onOpenViewer(documents[0], page_number || 1);
+    }
+  };
+
+  const isEmpty = messages.length === 0;
+
+  const suggestedPrompts = [
+    { title: 'Summarize Documents', desc: 'Synthesize key executive takeaways and core findings', icon: '📑', prompt: 'Please provide a comprehensive executive summary of the uploaded documents.' },
+    { title: 'Extract Definitions', desc: 'Identify critical domain terms, metrics, and definitions', icon: '📖', prompt: 'Extract and define all important terms, technical concepts, and key metrics found across the documents.' },
+    { title: 'Compare Key Findings', desc: 'Highlight agreements, differences, and contradictions', icon: '⚖️', prompt: 'Compare the primary arguments and findings across the documents, highlighting any contradictions.' },
+    { title: 'Generate Exam Questions', desc: 'Create study and review questions with answers', icon: '❓', prompt: 'Generate 5 insightful conceptual and technical questions based on the uploaded document evidence.' },
+  ];
+
   return (
-    <div className="flex h-[calc(100vh-4rem)] md:h-[calc(100vh-3.5rem)] overflow-hidden bg-carbon-primary text-silver-primary">
-      {/* PANE 1: Collapsible Session History Sidebar */}
-      <div
-        className={`${
-          sessionSidebarOpen ? 'w-64' : 'w-0'
-        } transition-all duration-300 ease-in-out border-r border-silver-border bg-carbon-deep flex flex-col shrink-0 overflow-hidden`}
-      >
-        <div className="p-3 border-b border-silver-border flex items-center justify-between">
-          <button
-            onClick={handleNewSession}
-            className="flex-1 py-1.5 px-3 bg-signal-yellow hover:bg-signal-hover text-carbon-deep text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>New Chat</span>
-          </button>
-          <button
-            onClick={() => setSessionSidebarOpen(false)}
-            className="p-1 text-silver-secondary hover:text-silver-light ml-2"
-            title="Collapse Sidebar"
-          >
-            <PanelLeftClose className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Sessions List */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {sessions.length === 0 ? (
-            <p className="text-xs text-silver-secondary text-center py-6 italic">No conversations yet.</p>
-          ) : (
-            sessions.map((sess) => {
-              const isActive = sess.id === currentSessionId;
-              return (
-                <div
-                  key={sess.id}
-                  onClick={() => setCurrentSessionId(sess.id)}
-                  className={`w-full group p-2.5 rounded-lg flex items-center justify-between text-xs cursor-pointer transition ${
-                    isActive
-                      ? 'bg-carbon-surface text-signal-yellow border border-silver-border font-semibold'
-                      : 'text-silver-secondary hover:bg-carbon-secondary hover:text-silver-light'
-                  }`}
+    <div className="flex-1 flex h-[calc(100vh-3.5rem)] md:h-screen overflow-hidden bg-[#111315] text-[#F0F1F2]">
+      {/* CENTER: Main Conversation View */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+        {/* Top Header Bar */}
+        <div className="h-13 border-b border-[#343A3F] px-4 md:px-6 flex items-center justify-between bg-[#111315]/80 backdrop-blur z-10 flex-shrink-0">
+          <div className="flex items-center gap-2 truncate">
+            <span className="text-xs font-mono uppercase tracking-wider text-[#A0A6AC]">
+              Scope:
+            </span>
+            {selectedDocIds.length === 0 ? (
+              <span className="px-2 py-0.5 rounded text-xs font-medium bg-[#191C1F] border border-[#343A3F] text-[#F0F1F2]">
+                All Documents ({documents.length})
+              </span>
+            ) : (
+              <div className="flex items-center gap-1">
+                <span className="px-2 py-0.5 rounded text-xs font-medium bg-[#E5B83D]/15 border border-[#E5B83D]/50 text-[#E5B83D] truncate max-w-xs">
+                  {documents.find((d) => d.doc_id === selectedDocIds[0])?.filename || '1 Document'}
+                </span>
+                <button
+                  onClick={() => {
+                    setSelectedDocIds([]);
+                    onSelectDocId(null);
+                  }}
+                  className="text-xs text-[#A0A6AC] hover:text-[#F0F1F2] p-0.5"
+                  title="Clear document filter"
                 >
-                  <div className="flex items-center gap-2 truncate">
-                    <MessageSquare className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">{sess.title || 'Untitled Session'}</span>
-                  </div>
-                  <button
-                    onClick={(e) => handleDeleteSession(e, sess.id)}
-                    className="opacity-0 group-hover:opacity-100 hover:text-red-400 p-0.5 rounded transition"
-                    title="Delete session"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-
-      {/* PANE 2: Main AI Chat Stream */}
-      <div className="flex-1 flex flex-col min-w-0 bg-carbon-primary relative">
-        {/* Top Control Bar */}
-        <div className="p-3 bg-carbon-deep border-b border-silver-border flex items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-3">
-            {!sessionSidebarOpen && (
-              <button
-                onClick={() => setSessionSidebarOpen(true)}
-                className="p-1.5 text-silver-secondary hover:text-silver-light bg-carbon-surface rounded-lg border border-silver-border transition"
-                title="Expand History"
-              >
-                <PanelLeft className="w-4 h-4" />
-              </button>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
             )}
-
-            <div className="flex items-center gap-2">
-              <Filter className="w-3.5 h-3.5 text-signal-yellow" />
-              <span className="text-xs text-silver-secondary font-mono">Scope:</span>
-              <select
-                value={selectedDocId || ''}
-                onChange={(e) => onSelectDocId && onSelectDocId(e.target.value || null)}
-                className="py-1 px-2.5 text-xs bg-carbon-surface border border-silver-border rounded-lg text-silver-light font-mono focus:border-signal-yellow focus:outline-none"
-              >
-                <option value="">Entire Library (All Documents)</option>
-                {documents.map((doc) => (
-                  <option key={doc.doc_id} value={doc.doc_id}>
-                    {doc.filename} ({doc.page_count} p.)
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setEvidencePanelOpen(!evidencePanelOpen)}
-              className={`px-2.5 py-1 text-xs rounded-lg border transition flex items-center gap-1.5 ${
-                evidencePanelOpen
-                  ? 'bg-carbon-surface border-signal-yellow text-signal-yellow font-bold'
-                  : 'bg-carbon-deep border-silver-border text-silver-secondary hover:text-silver-light'
+              onClick={() => setRightPanelOpen(!rightPanelOpen)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition ${
+                rightPanelOpen
+                  ? 'bg-[#191C1F] text-[#E5B83D] border-[#E5B83D]/60'
+                  : 'bg-[#191C1F] text-[#A0A6AC] border-[#343A3F] hover:text-[#F0F1F2]'
               }`}
             >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Evidence Inspector</span>
+              <FileText className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Research Context</span>
+              {activeCitations.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 bg-[#E5B83D] text-[#111315] font-bold rounded-full text-[10px]">
+                  {activeCitations.length}
+                </span>
+              )}
             </button>
           </div>
         </div>
 
-        {/* Message Thread */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
-            >
-              <div
-                className={`max-w-2xl rounded-xl p-4 text-sm leading-relaxed shadow-carbon-sm ${
-                  msg.sender === 'user'
-                    ? 'bg-carbon-surface text-silver-light border border-silver-border rounded-tr-none'
-                    : msg.isError
-                    ? 'bg-red-950/40 text-red-300 border border-red-800/60 rounded-tl-none'
-                    : 'bg-carbon-secondary text-silver-light border border-silver-border rounded-tl-none'
-                }`}
-              >
-                {/* Message Header */}
-                <div className="flex items-center justify-between gap-4 mb-2 pb-1.5 border-b border-silver-border/40">
-                  <span className="text-[11px] font-mono uppercase tracking-wider text-signal-yellow font-bold">
-                    {msg.sender === 'user' ? 'You' : 'DocNest Intelligence'}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono text-silver-secondary">{msg.timestamp}</span>
-                    <button
-                      onClick={() => handleCopy(msg.id, msg.text)}
-                      className="text-silver-secondary hover:text-silver-light transition"
-                      title="Copy response"
-                    >
-                      {copiedId === msg.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                </div>
+        {/* Message Feed / Empty State */}
+        <div className="flex-1 overflow-y-auto px-4 md:px-6 py-6 space-y-6">
+          {isEmpty ? (
+            /* ChatGPT-Inspired Centered Empty State */
+            <div className="max-w-2xl mx-auto h-full flex flex-col items-center justify-center text-center py-10">
+              <div className="w-12 h-12 rounded-xl bg-[#E5B83D]/10 border border-[#E5B83D]/30 flex items-center justify-center text-[#E5B83D] mb-4 shadow-sm">
+                <Sparkles className="w-6 h-6 text-[#E5B83D]" />
+              </div>
+              <h2 className="text-xl md:text-2xl font-bold text-[#F0F1F2] mb-2 tracking-tight">
+                Where should we begin your research?
+              </h2>
+              <p className="text-xs md:text-sm text-[#A0A6AC] max-w-md mb-8">
+                Ask questions across your uploaded documents. Answers are strictly grounded in document passages with page citations.
+              </p>
 
-                {/* Message Body */}
-                <div className="whitespace-pre-wrap">
-                  {msg.text}
-                  {isLoading && msg.sender === 'assistant' && msg.id === messages[messages.length - 1]?.id && (
-                    <span className="inline-block w-2 h-4 ml-1 bg-signal-yellow animate-pulse align-middle" />
-                  )}
-                  {!msg.text && isLoading && msg.sender === 'assistant' && (
-                    <span className="text-silver-secondary italic text-xs">Analyzing documents & synthesizing response...</span>
-                  )}
-                </div>
-
-                {/* Inline Citations Pills */}
-                {msg.citations && msg.citations.length > 0 && (
-                  <div className="mt-3.5 pt-3 border-t border-silver-border/40 space-y-2">
-                    <div className="text-[11px] font-mono uppercase text-silver-secondary flex items-center gap-1.5">
-                      <BookOpen className="w-3 h-3 text-signal-yellow" />
-                      <span>Retrieved Evidence ({msg.citations.length} sources):</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {msg.citations.map((c, cIdx) => (
-                        <button
-                          key={c.source_id || cIdx}
-                          onClick={() => {
-                            setSelectedCitation(c);
-                            setEvidencePanelOpen(true);
-                          }}
-                          className="px-2.5 py-1 bg-carbon-surface hover:bg-carbon-deep border border-silver-border rounded-lg text-xs font-mono flex items-center gap-1.5 text-silver-light hover:border-signal-yellow transition"
-                        >
-                          <FileText className="w-3 h-3 text-signal-yellow" />
-                          <span>{c.filename}, p. {c.page_number}</span>
-                          <span className="text-[10px] text-emerald-400 font-bold">
-                            {Math.round(c.relevance_score * 100)}%
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Feedback rating for Assistant responses */}
-                {msg.sender === 'assistant' && msg.id !== 'welcome' && (
-                  <div className="mt-2.5 pt-2 flex items-center justify-between text-[11px] text-silver-secondary border-t border-silver-border/20">
-                    <div className="flex items-center gap-1.5">
-                      <span>Helpful?</span>
-                      <button
-                        onClick={() => handleFeedback(msg.id, 1)}
-                        className={`p-1 rounded hover:bg-carbon-surface ${
-                          msg.feedback_rating === 1 ? 'text-emerald-400 font-bold' : ''
-                        }`}
-                        title="Good answer"
-                      >
-                        <ThumbsUp className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleFeedback(msg.id, -1)}
-                        className={`p-1 rounded hover:bg-carbon-surface ${
-                          msg.feedback_rating === -1 ? 'text-rose-400 font-bold' : ''
-                        }`}
-                        title="Inaccurate or ungrounded"
-                      >
-                        <ThumbsDown className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    {msg.trace?.total_ms && (
-                      <span className="font-mono text-[10px]">
-                        Latency: {msg.trace.total_ms}ms
+              {/* Prompt Suggestions Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full text-left">
+                {suggestedPrompts.map((item, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSend(item.prompt)}
+                    className="p-3.5 bg-[#191C1F] hover:bg-[#22262A] border border-[#343A3F] hover:border-[#E5B83D]/60 rounded-xl transition text-left group"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-base">{item.icon}</span>
+                      <span className="text-xs font-semibold text-[#F0F1F2] group-hover:text-[#E5B83D] transition">
+                        {item.title}
                       </span>
-                    )}
-                  </div>
-                )}
+                    </div>
+                    <p className="text-[11px] text-[#A0A6AC] line-clamp-2 leading-relaxed">
+                      {item.desc}
+                    </p>
+                  </button>
+                ))}
               </div>
             </div>
-          ))}
+          ) : (
+            /* Conversation Messages Feed */
+            <div className="max-w-3xl mx-auto space-y-6">
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex flex-col ${
+                    msg.sender === 'user' ? 'items-end' : 'items-start'
+                  }`}
+                >
+                  {/* Message Bubble Container */}
+                  <div
+                    className={`relative rounded-2xl p-4 md:p-5 max-w-[92%] sm:max-w-[85%] text-sm ${
+                      msg.sender === 'user'
+                        ? 'bg-[#191C1F] border border-[#343A3F] text-[#F0F1F2] rounded-br-sm'
+                        : 'bg-[#191C1F]/60 border border-[#343A3F]/80 text-[#F0F1F2] rounded-bl-sm w-full'
+                    }`}
+                  >
+                    {/* Header info */}
+                    <div className="flex items-center justify-between text-[11px] text-[#A0A6AC] mb-2 font-mono">
+                      <span className="font-semibold text-[#E5B83D]">
+                        {msg.sender === 'user' ? 'YOU' : 'DOCNEST RESEARCH AI'}
+                      </span>
+                      <span>{msg.timestamp}</span>
+                    </div>
 
-          {/* Live Streaming Stage Milestone Badge */}
-          {isLoading && streamingStage && (
-            <div className="flex items-center gap-2 p-3 bg-carbon-deep border border-silver-border/60 rounded-xl text-xs font-mono text-silver-secondary animate-pulse max-w-md">
-              <Loader2 className="w-4 h-4 animate-spin text-signal-yellow shrink-0" />
-              <span>{streamingStage}</span>
+                    {/* Content */}
+                    {msg.sender === 'user' ? (
+                      <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                    ) : (
+                      <div className="prose prose-invert max-w-none text-sm">
+                        <MarkdownRenderer
+                          content={msg.text}
+                          onCitationClick={handleCitationClick}
+                        />
+                      </div>
+                    )}
+
+                    {/* Citations Preview Strip for Assistant Message */}
+                    {msg.sender === 'assistant' && msg.citations && msg.citations.length > 0 && (
+                      <div className="mt-4 pt-3 border-t border-[#343A3F]/60 flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] uppercase font-mono tracking-wider text-[#A0A6AC]">
+                          Sources:
+                        </span>
+                        {msg.citations.map((cite, cIdx) => (
+                          <button
+                            key={cIdx}
+                            onClick={() => handleCitationClick(cite)}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#22262A] hover:bg-[#343A3F] border border-[#343A3F] rounded text-[11px] text-[#F0F1F2] transition"
+                            title={`Relevance score: ${(cite.relevance_score * 100).toFixed(0)}%`}
+                          >
+                            <FileText className="w-3 h-3 text-[#E5B83D]" />
+                            <span className="truncate max-w-[120px]">{cite.filename}</span>
+                            <span className="text-[#A0A6AC] font-mono">p.{cite.page_number}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Action Bar for Assistant Message */}
+                    {msg.sender === 'assistant' && msg.text && (
+                      <div className="mt-3 pt-2 flex items-center justify-between text-xs text-[#A0A6AC]">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleCopy(msg.id, msg.text)}
+                            className="p-1 hover:text-[#F0F1F2] rounded transition flex items-center gap-1"
+                            title="Copy response"
+                          >
+                            {copiedId === msg.id ? (
+                              <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            ) : (
+                              <Copy className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => handleFeedback(msg.id, 1)}
+                            className={`p-1 rounded transition hover:text-[#E5B83D] ${
+                              msg.feedback_rating === 1 ? 'text-[#E5B83D]' : ''
+                            }`}
+                            title="Helpful response"
+                          >
+                            <ThumbsUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleFeedback(msg.id, -1)}
+                            className={`p-1 rounded transition hover:text-rose-400 ${
+                              msg.feedback_rating === -1 ? 'text-rose-400' : ''
+                            }`}
+                            title="Unhelpful response"
+                          >
+                            <ThumbsDown className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setActiveCitations(msg.citations || []);
+                              setActiveTrace(msg.trace || null);
+                              setRightPanelOpen(true);
+                            }}
+                            className="text-[11px] hover:text-[#E5B83D] ml-1 transition"
+                          >
+                            Inspect Evidence
+                          </button>
+                        </div>
+
+                        {msg.trace?.retrieval_ms && (
+                          <span className="text-[10px] font-mono text-[#A0A6AC]/70">
+                            Latency: {msg.trace.retrieval_ms}ms retrieval
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {/* Streaming Indicator */}
+              {isLoading && (
+                <div className="flex items-center gap-3 p-3.5 bg-[#191C1F] border border-[#343A3F] rounded-xl text-xs text-[#A0A6AC] max-w-md animate-pulse">
+                  <Loader2 className="w-4 h-4 animate-spin text-[#E5B83D]" />
+                  <span>{streamingStage || 'Synthesizing response...'}</span>
+                </div>
+              )}
+
+              <div ref={messagesEndRef} />
             </div>
           )}
-
-          <div ref={messagesEndRef} />
         </div>
 
-        {/* Suggestion Chips */}
-        {suggestions.length > 0 && messages.length <= 2 && (
-          <div className="px-6 pb-2 flex items-center gap-2 overflow-x-auto text-xs">
-            <Sparkles className="w-3.5 h-3.5 text-signal-yellow shrink-0" />
-            {suggestions.map((s, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleSend(s)}
-                className="px-3 py-1 bg-carbon-surface border border-silver-border hover:border-signal-yellow rounded-full text-silver-light whitespace-nowrap text-xs transition"
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Input Bar */}
-        <div className="p-4 bg-carbon-deep border-t border-silver-border shrink-0">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleSend();
-            }}
-            className="flex items-center gap-2"
-          >
-            <input
-              type="text"
-              value={inputQuestion}
-              onChange={(e) => setInputQuestion(e.target.value)}
-              placeholder="Ask a question grounded in your documents (e.g. 'What were Q3 revenue numbers?')..."
-              disabled={isLoading}
-              className="flex-1 py-2.5 px-4 bg-carbon-primary border border-silver-border rounded-xl text-sm text-silver-light placeholder-silver-secondary/50 focus:border-signal-yellow focus:outline-none"
-            />
-            <button
-              type="submit"
-              disabled={!inputQuestion.trim() || isLoading}
-              className="p-2.5 bg-signal-yellow hover:bg-signal-hover text-carbon-deep font-bold rounded-xl transition disabled:opacity-40"
+        {/* BOTTOM: Sticky Prompt Input Bar */}
+        <div className="border-t border-[#343A3F] p-4 bg-[#111315] flex-shrink-0">
+          <div className="max-w-3xl mx-auto">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSend();
+              }}
+              className="relative flex items-end bg-[#191C1F] border border-[#343A3F] focus-within:border-[#E5B83D] rounded-2xl p-2 transition shadow-lg"
             >
-              <Send className="w-4 h-4" />
-            </button>
-          </form>
+              <textarea
+                ref={textareaRef}
+                value={inputQuestion}
+                onChange={(e) => {
+                  setInputQuestion(e.target.value);
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${Math.min(e.target.scrollHeight, 180)}px`;
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                placeholder="Ask questions about your research documents... (Shift+Enter for newline)"
+                rows={1}
+                className="w-full bg-transparent border-none text-sm text-[#F0F1F2] placeholder-[#A0A6AC]/60 px-3 py-1.5 focus:outline-none resize-none max-h-44"
+              />
+
+              <div className="flex items-center gap-1.5 flex-shrink-0 pr-1 pb-0.5">
+                {isLoading ? (
+                  <button
+                    type="button"
+                    onClick={handleStopGeneration}
+                    className="p-2 bg-[#22262A] hover:bg-[#343A3F] text-rose-400 rounded-xl transition"
+                    title="Stop generation"
+                  >
+                    <Square className="w-4 h-4 fill-rose-400" />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!inputQuestion.trim()}
+                    className="p-2 bg-[#E5B83D] hover:bg-[#F2C64B] disabled:opacity-40 text-[#111315] rounded-xl font-bold transition shadow-sm"
+                    title="Send question"
+                  >
+                    <Send className="w-4 h-4 stroke-[2.5]" />
+                  </button>
+                )}
+              </div>
+            </form>
+            <p className="text-[10px] text-center text-[#A0A6AC]/60 mt-2 font-mono">
+              Grounded in local ChromaDB vectors with Ollama LLM. Citations reference source document pages.
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* PANE 3: Evidence & Retrieval Inspector Drawer */}
-      {evidencePanelOpen && (
-        <div className="w-80 md:w-96 border-l border-silver-border bg-carbon-deep flex flex-col shrink-0 animate-fade-in overflow-hidden">
-          <RetrievalInspector
-            trace={activeTrace}
-            citations={messages[messages.length - 1]?.citations || []}
-            selectedCitation={selectedCitation}
-            onSelectCitation={(c) => {
-              setSelectedCitation(c);
-              if (onOpenViewer) {
-                const matchedDoc = documents.find((d) => d.filename === c.filename);
-                if (matchedDoc) {
-                  onOpenViewer(matchedDoc, c.page_number, c.content, c.section_heading, c.relevance_score);
-                }
-              }
-            }}
-            onClose={() => setEvidencePanelOpen(false)}
-          />
-        </div>
+      {/* RIGHT CONTEXTUAL RESEARCH PANEL */}
+      {rightPanelOpen && (
+        <aside className="w-80 md:w-96 border-l border-[#343A3F] bg-[#111315] flex flex-col h-full flex-shrink-0 animate-fade-in z-20">
+          {/* Panel Header */}
+          <div className="p-3.5 border-b border-[#343A3F] flex items-center justify-between bg-[#191C1F]">
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-[#E5B83D]" />
+              <span className="font-semibold text-xs text-[#F0F1F2]">Research Evidence Drawer</span>
+            </div>
+            <button
+              onClick={() => setRightPanelOpen(false)}
+              className="p-1 text-[#A0A6AC] hover:text-[#F0F1F2] rounded"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Tab Switcher */}
+          <div className="flex border-b border-[#343A3F] bg-[#111315] text-xs">
+            <button
+              onClick={() => setRightPanelTab('citations')}
+              className={`flex-1 py-2 font-medium transition border-b-2 ${
+                rightPanelTab === 'citations'
+                  ? 'border-[#E5B83D] text-[#E5B83D] bg-[#191C1F]'
+                  : 'border-transparent text-[#A0A6AC] hover:text-[#F0F1F2]'
+              }`}
+            >
+              Citations ({activeCitations.length})
+            </button>
+            <button
+              onClick={() => setRightPanelTab('inspector')}
+              className={`flex-1 py-2 font-medium transition border-b-2 ${
+                rightPanelTab === 'inspector'
+                  ? 'border-[#E5B83D] text-[#E5B83D] bg-[#191C1F]'
+                  : 'border-transparent text-[#A0A6AC] hover:text-[#F0F1F2]'
+              }`}
+            >
+              RAG Inspector
+            </button>
+            <button
+              onClick={() => setRightPanelTab('scope')}
+              className={`flex-1 py-2 font-medium transition border-b-2 ${
+                rightPanelTab === 'scope'
+                  ? 'border-[#E5B83D] text-[#E5B83D] bg-[#191C1F]'
+                  : 'border-transparent text-[#A0A6AC] hover:text-[#F0F1F2]'
+              }`}
+            >
+              Scope ({selectedDocIds.length || 'All'})
+            </button>
+          </div>
+
+          {/* Panel Body */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+            {rightPanelTab === 'citations' && (
+              <div className="space-y-3">
+                {activeCitations.length === 0 ? (
+                  <div className="text-center py-10 text-[#A0A6AC] space-y-2">
+                    <FileText className="w-8 h-8 text-[#A0A6AC]/40 mx-auto" />
+                    <p>No citations referenced yet.</p>
+                    <p className="text-[11px] text-[#A0A6AC]/60">
+                      Submit a question to see supporting document passages and page references here.
+                    </p>
+                  </div>
+                ) : (
+                  activeCitations.map((cite, index) => (
+                    <div
+                      key={index}
+                      className="p-3 bg-[#191C1F] border border-[#343A3F] rounded-xl space-y-2 hover:border-[#E5B83D]/60 transition"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <FileText className="w-3.5 h-3.5 text-[#E5B83D] flex-shrink-0" />
+                          <span className="font-semibold text-[#F0F1F2] truncate">
+                            {cite.filename}
+                          </span>
+                        </div>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#E5B83D]/10 text-[#E5B83D] border border-[#E5B83D]/30 flex-shrink-0">
+                          p. {cite.page_number}
+                        </span>
+                      </div>
+
+                      <p className="text-[11px] text-[#A0A6AC] leading-relaxed line-clamp-4 italic bg-[#111315] p-2 rounded border border-[#343A3F]/50">
+                        "{cite.content}"
+                      </p>
+
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[10px] text-[#A0A6AC] font-mono">
+                          Relevance: {(cite.relevance_score * 100).toFixed(0)}%
+                        </span>
+                        <button
+                          onClick={() => handleCitationClick(cite)}
+                          className="flex items-center gap-1 text-[11px] text-[#E5B83D] hover:underline"
+                        >
+                          <span>Open in Viewer</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {rightPanelTab === 'inspector' && (
+              <div className="space-y-3 font-mono">
+                {activeTrace ? (
+                  <>
+                    <div className="p-3 bg-[#191C1F] border border-[#343A3F] rounded-xl space-y-2">
+                      <span className="text-[10px] uppercase tracking-wider text-[#A0A6AC] block">
+                        Query Pipeline
+                      </span>
+                      <div className="text-[11px] text-[#F0F1F2]">
+                        <span className="text-[#A0A6AC]">Rewritten: </span>
+                        "{activeTrace.rewritten_query || 'N/A'}"
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-[#191C1F] border border-[#343A3F] rounded-xl space-y-2">
+                      <span className="text-[10px] uppercase tracking-wider text-[#A0A6AC] block">
+                        Latency Breakdown
+                      </span>
+                      <div className="grid grid-cols-2 gap-2 text-[11px]">
+                        <div className="p-2 bg-[#111315] rounded border border-[#343A3F]/40">
+                          <span className="text-[#A0A6AC] block text-[10px]">Retrieval:</span>
+                          <span className="text-[#E5B83D] font-bold">{activeTrace.retrieval_ms || 0} ms</span>
+                        </div>
+                        <div className="p-2 bg-[#111315] rounded border border-[#343A3F]/40">
+                          <span className="text-[#A0A6AC] block text-[10px]">Reranking:</span>
+                          <span className="text-[#E5B83D] font-bold">{activeTrace.rerank_ms || 0} ms</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-[#191C1F] border border-[#343A3F] rounded-xl space-y-2">
+                      <span className="text-[10px] uppercase tracking-wider text-[#A0A6AC] block">
+                        Fusion & Scores
+                      </span>
+                      <div className="space-y-1 text-[11px]">
+                        <div className="flex justify-between">
+                          <span className="text-[#A0A6AC]">Candidates Retrieved:</span>
+                          <span className="text-[#F0F1F2]">{activeTrace.candidate_count || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[#A0A6AC]">Candidates Reranked:</span>
+                          <span className="text-[#F0F1F2]">{activeTrace.reranked_count || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[#A0A6AC]">Max Relevance Score:</span>
+                          <span className="text-[#E5B83D] font-bold">
+                            {activeTrace.max_relevance_score || '0.00'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center py-10 text-[#A0A6AC] space-y-2">
+                    <Sliders className="w-8 h-8 text-[#A0A6AC]/40 mx-auto" />
+                    <p>No telemetry recorded yet.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {rightPanelTab === 'scope' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-[#343A3F]">
+                  <span className="font-semibold text-xs text-[#F0F1F2]">Document Isolation</span>
+                  <button
+                    onClick={() => {
+                      setSelectedDocIds([]);
+                      onSelectDocId(null);
+                    }}
+                    className="text-[11px] text-[#E5B83D] hover:underline"
+                  >
+                    Select All
+                  </button>
+                </div>
+
+                <div className="space-y-1.5">
+                  {documents.map((doc) => {
+                    const isSelected = selectedDocIds.includes(doc.doc_id);
+                    return (
+                      <div
+                        key={doc.doc_id}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedDocIds((prev) => prev.filter((id) => id !== doc.doc_id));
+                          } else {
+                            setSelectedDocIds((prev) => [...prev, doc.doc_id]);
+                          }
+                        }}
+                        className={`p-2.5 rounded-lg border cursor-pointer transition flex items-center justify-between ${
+                          isSelected
+                            ? 'bg-[#191C1F] border-[#E5B83D] text-[#F0F1F2]'
+                            : 'bg-[#111315] border-[#343A3F] text-[#A0A6AC] hover:border-[#343A3F]/80'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <FileText className={`w-3.5 h-3.5 ${isSelected ? 'text-[#E5B83D]' : ''}`} />
+                          <span className="truncate text-xs">{doc.filename}</span>
+                        </div>
+                        <span className="text-[10px] font-mono text-[#A0A6AC]">
+                          {doc.page_count}p
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </aside>
       )}
     </div>
   );
