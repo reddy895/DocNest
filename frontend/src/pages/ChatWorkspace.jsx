@@ -32,6 +32,7 @@ import {
   createChatSession,
   uploadDocumentFile,
   createResearchNote,
+  autoTitleChatSession,
 } from '../services/api';
 
 export default function ChatWorkspace({
@@ -326,6 +327,15 @@ export default function ChatWorkspace({
                     : m
                 )
               );
+
+              // Auto-title the session on first conversational turn
+              if (targetSessionId && messages.length <= 1) {
+                autoTitleChatSession(targetSessionId)
+                  .then(() => {
+                    if (onSessionCreated) onSessionCreated(targetSessionId);
+                  })
+                  .catch((e) => console.debug('Auto-title skipped:', e));
+              }
             }
           } catch (e) {
             console.warn('Error parsing stream chunk:', e);

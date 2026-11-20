@@ -297,6 +297,76 @@ async def update_chat_session(session_id: str, payload: UpdateSessionRequest):
         )
 
 
+@router.post("/sessions/{session_id}/auto-title", response_model=ChatSessionInfo)
+async def auto_title_chat_session(session_id: str):
+    """
+    Auto-summarize conversation messages into a clean 3-5 word title using Ollama.
+    """
+    async with get_db_connection() as db:
+        cursor = await db.execute(
+            "SELECT text FROM chat_messages WHERE session_id = ? AND sender = 'user' ORDER BY created_at ASC LIMIT 1",
+            (session_id,),
+        )
+        row = await cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=400, detail="Cannot generate title for empty session")
+
+        first_prompt = row["text"]
+        ollama = get_ollama_service()
+        active_model = await ollama.get_active_model()
+
+        title_prompt = (
+            f"Generate a concise 3 to 5 word title summarizing this question:\n"
+            f"Question: \"{first_prompt}\"\n"
+            f"Rules: Return ONLY the title text, nothing else. No punctuation, no quotes."
+        )
+
+        try:
+            generated_title = await ollama.generate_response(
+                prompt=title_prompt,
+                model=active_model,
+                temperature=0.2,
+                max_tokens=20,
+            )
+            clean_title = generated_title.strip().replace('"', '').replace("'", "").replace("\n", " ")[:40]
+            if not clean_title or len(clean_title) < 3:
+                clean_title = first_prompt[:32] + "..."
+        except Exception:
+            clean_title = first_prompt[:32] + "..."
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+        await db.execute(
+            "UPDATE chat_sessions SET title = ?, updated_at = ? WHERE id = ?",
+            (clean_title, now_iso, session_id),
+        )
+        await db.commit()
+
+        cursor = await db.execute(
+            """
+            SELECT s.id, s.user_id, s.workspace_id, s.title,
+                   COALESCE(s.is_pinned, 0) as is_pinned,
+                   s.created_at, s.updated_at,
+                   COUNT(m.id) as msg_count
+            FROM chat_sessions s
+            LEFT JOIN chat_messages m ON s.id = m.session_id
+            WHERE s.id = ?
+            GROUP BY s.id
+            """,
+            (session_id,),
+        )
+        updated = await cursor.fetchone()
+        return ChatSessionInfo(
+            id=updated["id"],
+            user_id=updated["user_id"],
+            workspace_id=updated["workspace_id"],
+            title=updated["title"],
+            is_pinned=bool(updated["is_pinned"]),
+            created_at=updated["created_at"],
+            updated_at=updated["updated_at"],
+            message_count=updated["msg_count"],
+        )
+
+
 @router.get("/sessions/{session_id}/messages", response_model=List[ChatMessageInfo])
 async def get_session_messages(session_id: str):
     """Retrieve full chronological message history for a chat session."""

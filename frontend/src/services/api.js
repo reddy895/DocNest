@@ -251,6 +251,15 @@ export async function deleteChatSession(sessionId) {
   return res.json();
 }
 
+export async function autoTitleChatSession(sessionId) {
+  const res = await fetch(`/api/chat/sessions/${sessionId}/auto-title`, {
+    method: 'POST',
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to auto-title session');
+  return res.json();
+}
+
 export async function recordMessageFeedback(messageId, rating, comment = '') {
   const res = await fetch(`/api/chat/${messageId}/feedback`, {
     method: 'POST',
