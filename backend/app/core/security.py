@@ -50,3 +50,24 @@ def decode_access_token(token: str) -> Optional[Dict[str, Any]]:
         return payload
     except (jwt.PyJWTError, Exception):
         return None
+
+
+def validate_file_size_and_extension(filename: str, file_size_bytes: int) -> tuple[bool, Optional[str]]:
+    """
+    Validate that an incoming document upload conforms to allowed extensions and size bounds.
+    """
+    from pathlib import Path
+    ext = Path(filename).suffix.lower()
+    if ext not in settings.ALLOWED_EXTENSIONS:
+        allowed = ", ".join(settings.ALLOWED_EXTENSIONS)
+        return False, f"Unsupported file extension '{ext}'. Allowed extensions: {allowed}"
+
+    max_bytes = settings.MAX_FILE_SIZE_MB * 1024 * 1024
+    if file_size_bytes > max_bytes:
+        return False, f"File size exceeds maximum permitted limit of {settings.MAX_FILE_SIZE_MB}MB."
+
+    if file_size_bytes == 0:
+        return False, "File is completely empty (0 bytes)."
+
+    return True, None
+
