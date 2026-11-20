@@ -322,9 +322,9 @@ export default function AppLayout({
           {onOpenUpload && !isCollapsed && (
             <button
               onClick={onOpenUpload}
-              className="w-full flex items-center justify-center gap-2 py-1.5 px-2 bg-[#191C1F] hover:bg-[#22262A] border border-[#343A3F] text-[#F0F1F2] rounded-md text-[11px] font-medium transition"
+              className="w-full flex items-center justify-center gap-2 py-1.5 px-2 bg-[#1A1D20] hover:bg-[#22262B] border border-[#30353A] text-[#F2F3F4] rounded-lg text-[11px] font-medium transition"
             >
-              <UploadCloud className="w-3.5 h-3.5 text-[#E5B83D]" />
+              <UploadCloud className="w-3.5 h-3.5 text-[#F5C542]" />
               <span>Upload Document</span>
             </button>
           )}
@@ -332,7 +332,7 @@ export default function AppLayout({
           {/* Model Status Pill */}
           <div
             onClick={() => setActiveTab('models')}
-            className="flex items-center justify-between p-2 bg-[#191C1F] border border-[#343A3F] rounded-md cursor-pointer hover:border-[#E5B83D]/60 transition"
+            className="flex items-center justify-between p-2 bg-[#1A1D20] border border-[#30353A] rounded-lg cursor-pointer hover:border-[#F5C542]/60 transition"
             title="Configure Active Ollama Model"
           >
             <div className="flex items-center gap-2 truncate">
@@ -342,32 +342,43 @@ export default function AppLayout({
                 }`}
               />
               {!isCollapsed && (
-                <span className="text-xs font-mono text-[#F0F1F2] truncate">
+                <span className="text-xs font-mono text-[#F2F3F4] truncate">
                   {configuredModel}
                 </span>
               )}
             </div>
             {!isCollapsed && (
-              <span className="text-[10px] text-[#A0A6AC] font-mono">131K ctx</span>
+              <span className="text-[10px] text-[#A2A9B0] font-mono">131K ctx</span>
             )}
           </div>
 
-          {/* User Workspace Button */}
-          <button
-            onClick={() => setAuthModalOpen(true)}
-            className="w-full flex items-center justify-between p-1.5 hover:bg-[#191C1F] rounded-md transition text-[#A0A6AC] hover:text-[#F0F1F2]"
-            title="Workspace & User Account"
-          >
-            <div className="flex items-center gap-2 truncate">
-              <Shield className="w-3.5 h-3.5 text-[#E5B83D]" />
+          {/* User Workspace Profile Badge */}
+          <div className="pt-1 border-t border-[#30353A]/50">
+            <button
+              onClick={() => setAuthModalOpen(true)}
+              className="w-full flex items-center justify-between p-2 bg-[#1A1D20]/60 hover:bg-[#1A1D20] border border-[#30353A] rounded-xl transition text-[#A2A9B0] hover:text-[#F2F3F4] group"
+              title="User Account & Preferences"
+            >
+              <div className="flex items-center gap-2.5 truncate">
+                <div className="w-6 h-6 rounded-full bg-[#F5C542]/10 border border-[#F5C542]/40 text-[#F5C542] flex items-center justify-center text-[10px] font-bold">
+                  {currentUser?.username ? currentUser.username[0].toUpperCase() : 'U'}
+                </div>
+                {!isCollapsed && (
+                  <div className="truncate text-left">
+                    <span className="text-xs font-semibold text-[#F2F3F4] block truncate leading-tight">
+                      {currentUser?.full_name || currentUser?.username || 'Local Researcher'}
+                    </span>
+                    <span className="text-[10px] text-[#A2A9B0] font-mono block truncate">
+                      {currentUser?.workspace_name || 'Default Workspace'}
+                    </span>
+                  </div>
+                )}
+              </div>
               {!isCollapsed && (
-                <span className="text-xs truncate font-medium text-[#F0F1F2]">
-                  {currentUser?.workspace_name || 'Default Workspace'}
-                </span>
+                <SettingsIcon className="w-3.5 h-3.5 text-[#A2A9B0] group-hover:text-[#F5C542] transition-colors" />
               )}
-            </div>
-            {!isCollapsed && <User className="w-3.5 h-3.5" />}
-          </button>
+            </button>
+          </div>
         </div>
       </aside>
 
