@@ -8,21 +8,29 @@ export default {
     extend: {
       colors: {
         carbon: {
-          deep: '#111315',
-          primary: '#111315',
-          secondary: '#191C1F',
-          surface: '#22262A',
+          bg: '#101214',
+          surface: '#1A1D20',
+          elevated: '#17191B',
+          deep: '#101214',
+          primary: '#17191B',
+          secondary: '#1A1D20',
         },
         silver: {
-          light: '#F0F1F2',
-          primary: '#F0F1F2',
-          secondary: '#A0A6AC',
-          border: '#343A3F',
+          light: '#F2F3F4',
+          primary: '#F2F3F4',
+          secondary: '#A2A9B0',
+          muted: '#B8BEC4',
+          border: '#30353A',
+        },
+        yellow: {
+          warm: '#F5C542',
+          hover: '#FFD358',
+          muted: '#C49826',
         },
         signal: {
-          yellow: '#E5B83D',
-          hover: '#F2C64B',
-          muted: '#B58D2D',
+          yellow: '#F5C542',
+          hover: '#FFD358',
+          muted: '#C49826',
         },
       },
       fontFamily: {
