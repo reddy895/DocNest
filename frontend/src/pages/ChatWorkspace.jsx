@@ -44,6 +44,7 @@ export default function ChatWorkspace({
   const [inputQuestion, setInputQuestion] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [streamingStage, setStreamingStage] = useState('');
+  const [currentStageKey, setCurrentStageKey] = useState('rewriting');
   const [copiedId, setCopiedId] = useState(null);
   const [activeTrace, setActiveTrace] = useState(null);
   const [activeCitations, setActiveCitations] = useState([]);
@@ -281,6 +282,7 @@ export default function ChatWorkspace({
             const payload = JSON.parse(line.replace('data: ', ''));
 
             if (payload.event === 'status') {
+              if (payload.stage) setCurrentStageKey(payload.stage);
               setStreamingStage(payload.message || '');
             } else if (payload.event === 'retrieval') {
               citationsFound = payload.citations || [];
@@ -295,6 +297,7 @@ export default function ChatWorkspace({
                 )
               );
             } else if (payload.event === 'token') {
+              setCurrentStageKey('generating');
               accumulatedTokens += payload.token;
               setMessages((prev) =>
                 prev.map((m) =>
@@ -582,11 +585,55 @@ export default function ChatWorkspace({
                 </div>
               ))}
 
-              {/* Streaming Indicator */}
+              {/* Multi-Stage Streaming Pipeline Indicator */}
               {isLoading && (
-                <div className="flex items-center gap-3 p-3.5 bg-[#191C1F] border border-[#343A3F] rounded-xl text-xs text-[#A0A6AC] max-w-md animate-pulse">
-                  <Loader2 className="w-4 h-4 animate-spin text-[#E5B83D]" />
-                  <span>{streamingStage || 'Synthesizing response...'}</span>
+                <div className="p-3.5 bg-[#17191B] border border-[#30353A] rounded-2xl text-xs text-[#F2F3F4] max-w-xl shadow-xl space-y-2.5">
+                  <div className="flex items-center justify-between border-b border-[#30353A]/60 pb-2">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-[#F5C542]" />
+                      <span className="font-semibold text-[#F2F3F4]">DocNest RAG Pipeline Active</span>
+                    </div>
+                    <span className="text-[11px] font-mono text-[#F5C542] animate-pulse">
+                      {streamingStage || 'Processing query...'}
+                    </span>
+                  </div>
+
+                  {/* 4 Stage Milestone Indicators */}
+                  <div className="grid grid-cols-4 gap-1.5 pt-0.5">
+                    {[
+                      { key: 'rewriting', label: 'Rewrite' },
+                      { key: 'retrieving', label: 'Retrieve' },
+                      { key: 'reranking', label: 'Rerank' },
+                      { key: 'generating', label: 'Generate' },
+                    ].map((step, idx) => {
+                      const stages = ['rewriting', 'retrieving', 'reranking', 'generating'];
+                      const currentIdx = stages.indexOf(currentStageKey);
+                      const isPast = currentIdx > idx;
+                      const isCurrent = currentIdx === idx;
+
+                      return (
+                        <div
+                          key={step.key}
+                          className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[11px] border font-mono transition ${
+                            isCurrent
+                              ? 'bg-[#F5C542]/15 border-[#F5C542] text-[#F5C542] font-semibold shadow-sm'
+                              : isPast
+                              ? 'bg-[#1A1D20] border-[#30353A] text-emerald-400'
+                              : 'bg-[#101214] border-[#30353A]/40 text-[#A2A9B0]/40'
+                          }`}
+                        >
+                          {isPast ? (
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                          ) : isCurrent ? (
+                            <Loader2 className="w-3 h-3 animate-spin text-[#F5C542] flex-shrink-0" />
+                          ) : (
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#30353A] flex-shrink-0" />
+                          )}
+                          <span className="truncate">{step.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
