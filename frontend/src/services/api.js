@@ -105,6 +105,33 @@ export async function updateUserSettings(settings) {
   return res.json();
 }
 
+// ---------------- MODELS ----------------
+export async function fetchAvailableModels(refresh = false) {
+  const res = await fetch(`/api/models?refresh=${refresh}`, { headers: getHeaders() });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function testModelConnection(modelName) {
+  const res = await fetch('/api/models/test', {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ model: modelName }),
+  });
+  if (!res.ok) throw new Error('Model test connection failed');
+  return res.json();
+}
+
+export async function switchActiveModel(modelName) {
+  const res = await fetch('/api/models/switch', {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ model: modelName }),
+  });
+  if (!res.ok) throw new Error('Failed to switch active model');
+  return res.json();
+}
+
 // ---------------- DOCUMENTS & SAMPLES ----------------
 export async function fetchDocuments() {
   const res = await fetch('/api/documents', { headers: getHeaders() });

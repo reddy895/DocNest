@@ -15,6 +15,7 @@ from backend.app.api.eval import router as eval_router
 from backend.app.api.research import router as research_router
 from backend.app.api.workspaces import router as workspaces_router
 from backend.app.api.conversations import router as conversations_router
+from backend.app.api.models import router as models_router
 
 # Configure standard structured logging
 logging.basicConfig(
@@ -75,6 +76,7 @@ app.include_router(eval_router)
 app.include_router(research_router)
 app.include_router(workspaces_router)
 app.include_router(conversations_router)
+app.include_router(models_router)
 
 # Register centralized error handlers
 register_error_handlers(app)
