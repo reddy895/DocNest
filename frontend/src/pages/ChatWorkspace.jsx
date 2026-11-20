@@ -22,6 +22,7 @@ import {
   Paperclip,
   Cpu,
   ChevronDown,
+  Edit2,
 } from 'lucide-react';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import ContextualResearchPanel from '../components/ContextualResearchPanel';
@@ -30,6 +31,7 @@ import {
   recordMessageFeedback,
   createChatSession,
   uploadDocumentFile,
+  createResearchNote,
 } from '../services/api';
 
 export default function ChatWorkspace({
@@ -58,6 +60,8 @@ export default function ChatWorkspace({
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [searchMode, setSearchMode] = useState('hybrid'); // 'hybrid' | 'vector' | 'bm25'
   const [showSearchMenu, setShowSearchMenu] = useState(false);
+  const [editingMsgId, setEditingMsgId] = useState(null);
+  const [editText, setEditText] = useState('');
 
   const abortControllerRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -356,6 +360,45 @@ export default function ChatWorkspace({
     }
   };
 
+  // User query edit handlers
+  const handleStartEdit = (msg) => {
+    setEditingMsgId(msg.id);
+    setEditText(msg.text);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMsgId(null);
+    setEditText('');
+  };
+
+  const handleSaveAndResubmit = (msgId) => {
+    const trimmed = editText.trim();
+    if (!trimmed) return;
+    setEditingMsgId(null);
+    const idx = messages.findIndex((m) => m.id === msgId);
+    if (idx !== -1) {
+      setMessages((prev) => prev.slice(0, idx));
+      handleSend(trimmed);
+    }
+  };
+
+  // Save research note handler
+  const handleSaveNote = async (msg) => {
+    try {
+      await createResearchNote({
+        title: `Research Note: ${msg.text.slice(0, 40)}...`,
+        content: msg.text,
+        session_id: activeSessionId,
+        tags: ['chat-saved'],
+        citations: msg.citations || [],
+      });
+      setSavedNoteSuccess(msg.id);
+      setTimeout(() => setSavedNoteSuccess(null), 2500);
+    } catch (err) {
+      console.error('Failed to save note:', err);
+    }
+  };
+
   // Click citation in message or right panel
   const handleCitationClick = ({ filename, page_number }) => {
     const doc = documents.find(
@@ -476,7 +519,7 @@ export default function ChatWorkspace({
               {messages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`flex flex-col ${
+                  className={`flex flex-col group ${
                     msg.sender === 'user' ? 'items-end' : 'items-start'
                   }`}
                 >
@@ -484,21 +527,70 @@ export default function ChatWorkspace({
                   <div
                     className={`relative rounded-2xl p-4 md:p-5 max-w-[92%] sm:max-w-[85%] text-sm ${
                       msg.sender === 'user'
-                        ? 'bg-[#191C1F] border border-[#343A3F] text-[#F0F1F2] rounded-br-sm'
-                        : 'bg-[#191C1F]/60 border border-[#343A3F]/80 text-[#F0F1F2] rounded-bl-sm w-full'
+                        ? 'bg-[#17191B] border border-[#30353A] text-[#F2F3F4] rounded-br-sm'
+                        : 'bg-[#17191B]/80 border border-[#30353A] text-[#F2F3F4] rounded-bl-sm w-full'
                     }`}
                   >
                     {/* Header info */}
-                    <div className="flex items-center justify-between text-[11px] text-[#A0A6AC] mb-2 font-mono">
-                      <span className="font-semibold text-[#E5B83D]">
+                    <div className="flex items-center justify-between text-[11px] text-[#A2A9B0] mb-2 font-mono">
+                      <span className="font-semibold text-[#F5C542]">
                         {msg.sender === 'user' ? 'YOU' : 'DOCNEST RESEARCH AI'}
                       </span>
-                      <span>{msg.timestamp}</span>
+                      <div className="flex items-center gap-2">
+                        <span>{msg.timestamp}</span>
+                        {msg.sender === 'user' && !editingMsgId && (
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                            <button
+                              onClick={() => handleStartEdit(msg)}
+                              className="p-1 hover:text-[#F5C542] rounded transition"
+                              title="Edit question"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => handleCopy(msg.id, msg.text)}
+                              className="p-1 hover:text-[#F2F3F4] rounded transition"
+                              title="Copy text"
+                            >
+                              {copiedId === msg.id ? (
+                                <Check className="w-3 h-3 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* Content */}
                     {msg.sender === 'user' ? (
-                      <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                      editingMsgId === msg.id ? (
+                        <div className="space-y-2 mt-1">
+                          <textarea
+                            value={editText}
+                            onChange={(e) => setEditText(e.target.value)}
+                            className="w-full bg-[#101214] border border-[#F5C542] rounded-xl p-2.5 text-sm text-[#F2F3F4] focus:outline-none resize-none min-h-[70px]"
+                            autoFocus
+                          />
+                          <div className="flex items-center justify-end gap-2 text-xs">
+                            <button
+                              onClick={handleCancelEdit}
+                              className="px-2.5 py-1 bg-[#1A1D20] hover:bg-[#22262B] border border-[#30353A] text-[#A2A9B0] rounded-lg transition"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => handleSaveAndResubmit(msg.id)}
+                              className="px-2.5 py-1 bg-[#F5C542] hover:bg-[#FFD358] text-[#101214] font-bold rounded-lg transition"
+                            >
+                              Save & Submit
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                      )
                     ) : (
                       <div className="prose prose-invert max-w-none text-sm">
                         <MarkdownRenderer
@@ -510,20 +602,20 @@ export default function ChatWorkspace({
 
                     {/* Citations Preview Strip for Assistant Message */}
                     {msg.sender === 'assistant' && msg.citations && msg.citations.length > 0 && (
-                      <div className="mt-4 pt-3 border-t border-[#343A3F]/60 flex flex-wrap items-center gap-1.5">
-                        <span className="text-[10px] uppercase font-mono tracking-wider text-[#A0A6AC]">
+                      <div className="mt-4 pt-3 border-t border-[#30353A]/60 flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] uppercase font-mono tracking-wider text-[#A2A9B0]">
                           Sources:
                         </span>
                         {msg.citations.map((cite, cIdx) => (
                           <button
                             key={cIdx}
                             onClick={() => handleCitationClick(cite)}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#22262A] hover:bg-[#343A3F] border border-[#343A3F] rounded text-[11px] text-[#F0F1F2] transition"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#1A1D20] hover:bg-[#22262B] border border-[#30353A] rounded text-[11px] text-[#F2F3F4] transition"
                             title={`Relevance score: ${(cite.relevance_score * 100).toFixed(0)}%`}
                           >
-                            <FileText className="w-3 h-3 text-[#E5B83D]" />
+                            <FileText className="w-3 h-3 text-[#F5C542]" />
                             <span className="truncate max-w-[120px]">{cite.filename}</span>
-                            <span className="text-[#A0A6AC] font-mono">p.{cite.page_number}</span>
+                            <span className="text-[#A2A9B0] font-mono">p.{cite.page_number}</span>
                           </button>
                         ))}
                       </div>
@@ -531,11 +623,11 @@ export default function ChatWorkspace({
 
                     {/* Action Bar for Assistant Message */}
                     {msg.sender === 'assistant' && msg.text && (
-                      <div className="mt-3 pt-2 flex items-center justify-between text-xs text-[#A0A6AC]">
-                        <div className="flex items-center gap-2">
+                      <div className="mt-3 pt-2.5 flex items-center justify-between text-xs text-[#A2A9B0] border-t border-[#30353A]/50">
+                        <div className="flex items-center gap-1.5">
                           <button
                             onClick={() => handleCopy(msg.id, msg.text)}
-                            className="p-1 hover:text-[#F0F1F2] rounded transition flex items-center gap-1"
+                            className="p-1 hover:text-[#F2F3F4] hover:bg-[#1A1D20] rounded transition flex items-center gap-1"
                             title="Copy response"
                           >
                             {copiedId === msg.id ? (
@@ -545,9 +637,27 @@ export default function ChatWorkspace({
                             )}
                           </button>
                           <button
+                            onClick={handleRegenerate}
+                            className="p-1 hover:text-[#F5C542] hover:bg-[#1A1D20] rounded transition"
+                            title="Regenerate response"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleSaveNote(msg)}
+                            className="p-1 hover:text-[#F5C542] hover:bg-[#1A1D20] rounded transition flex items-center gap-1"
+                            title="Save as Research Note"
+                          >
+                            {savedNoteSuccess === msg.id ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            ) : (
+                              <Bookmark className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                          <button
                             onClick={() => handleFeedback(msg.id, 1)}
-                            className={`p-1 rounded transition hover:text-[#E5B83D] ${
-                              msg.feedback_rating === 1 ? 'text-[#E5B83D]' : ''
+                            className={`p-1 rounded transition hover:text-[#F5C542] hover:bg-[#1A1D20] ${
+                              msg.feedback_rating === 1 ? 'text-[#F5C542]' : ''
                             }`}
                             title="Helpful response"
                           >
@@ -555,7 +665,7 @@ export default function ChatWorkspace({
                           </button>
                           <button
                             onClick={() => handleFeedback(msg.id, -1)}
-                            className={`p-1 rounded transition hover:text-rose-400 ${
+                            className={`p-1 rounded transition hover:text-rose-400 hover:bg-[#1A1D20] ${
                               msg.feedback_rating === -1 ? 'text-rose-400' : ''
                             }`}
                             title="Unhelpful response"
@@ -568,14 +678,14 @@ export default function ChatWorkspace({
                               setActiveTrace(msg.trace || null);
                               setRightPanelOpen(true);
                             }}
-                            className="text-[11px] hover:text-[#E5B83D] ml-1 transition"
+                            className="text-[11px] font-mono hover:text-[#F5C542] px-2 py-0.5 rounded hover:bg-[#1A1D20] ml-1 transition"
                           >
                             Inspect Evidence
                           </button>
                         </div>
 
                         {msg.trace?.retrieval_ms && (
-                          <span className="text-[10px] font-mono text-[#A0A6AC]/70">
+                          <span className="text-[10px] font-mono text-[#A2A9B0]/70">
                             Latency: {msg.trace.retrieval_ms}ms retrieval
                           </span>
                         )}
