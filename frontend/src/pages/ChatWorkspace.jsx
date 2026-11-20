@@ -540,15 +540,15 @@ export default function ChatWorkspace({
         </div>
 
         {/* BOTTOM: Sticky Prompt Input Bar */}
-        <div className="border-t border-[#343A3F] p-4 bg-[#111315] flex-shrink-0">
+        <div className="border-t border-[#30353A] p-4 bg-[#101214] flex-shrink-0">
           <div className="max-w-3xl mx-auto">
             {/* Active Document Scope Indicator */}
             {selectedDocIds.length > 0 && (
-              <div className="mb-2 flex items-center justify-between px-3 py-1.5 bg-[#191C1F] border border-[#E5B83D]/40 rounded-xl text-xs text-[#F0F1F2]">
+              <div className="mb-2 flex items-center justify-between px-3 py-1.5 bg-[#17191B] border border-[#F5C542]/40 rounded-xl text-xs text-[#F2F3F4]">
                 <div className="flex items-center gap-2 truncate">
-                  <span className="w-2 h-2 rounded-full bg-[#E5B83D] animate-ping" />
-                  <span className="text-[#A0A6AC]">Scoped to:</span>
-                  <span className="font-semibold text-[#E5B83D] truncate">
+                  <span className="w-2 h-2 rounded-full bg-[#F5C542] animate-ping" />
+                  <span className="text-[#A2A9B0]">Scoped to:</span>
+                  <span className="font-semibold text-[#F5C542] truncate">
                     {selectedDocIds.length === 1
                       ? documents.find((d) => (d.doc_id || d.id) === selectedDocIds[0])?.filename || '1 document'
                       : `${selectedDocIds.length} documents`}
@@ -560,7 +560,7 @@ export default function ChatWorkspace({
                     setSelectedDocIds([]);
                     onSelectDocId(null);
                   }}
-                  className="flex items-center gap-1 text-[11px] text-[#A0A6AC] hover:text-[#F0F1F2] px-2 py-0.5 rounded hover:bg-[#22262A] transition"
+                  className="flex items-center gap-1 text-[11px] text-[#A2A9B0] hover:text-[#F2F3F4] px-2 py-0.5 rounded hover:bg-[#1A1D20] transition"
                 >
                   <X className="w-3 h-3" />
                   <span>Search All Documents</span>
@@ -573,7 +573,7 @@ export default function ChatWorkspace({
                 e.preventDefault();
                 handleSend();
               }}
-              className="relative flex items-end bg-[#191C1F] border border-[#343A3F] focus-within:border-[#E5B83D] rounded-2xl p-2 transition shadow-lg"
+              className="relative flex items-end bg-[#17191B] border border-[#30353A] focus-within:border-[#F5C542] rounded-2xl p-2.5 transition shadow-xl"
             >
               <textarea
                 ref={textareaRef}
@@ -581,7 +581,7 @@ export default function ChatWorkspace({
                 onChange={(e) => {
                   setInputQuestion(e.target.value);
                   e.target.style.height = 'auto';
-                  e.target.style.height = `${Math.min(e.target.scrollHeight, 180)}px`;
+                  e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
@@ -589,17 +589,17 @@ export default function ChatWorkspace({
                     handleSend();
                   }
                 }}
-                placeholder="Ask questions about your research documents... (Shift+Enter for newline)"
+                placeholder="Ask anything about your documents... (Enter to send, Shift+Enter for newline)"
                 rows={1}
-                className="w-full bg-transparent border-none text-sm text-[#F0F1F2] placeholder-[#A0A6AC]/60 px-3 py-1.5 focus:outline-none resize-none max-h-44"
+                className="w-full bg-transparent border-none text-sm text-[#F2F3F4] placeholder-[#A2A9B0]/60 px-3 py-1.5 focus:outline-none resize-none max-h-52 leading-relaxed"
               />
 
-              <div className="flex items-center gap-1.5 flex-shrink-0 pr-1 pb-0.5">
+              <div className="flex items-center gap-2 flex-shrink-0 pr-1 pb-0.5">
                 {isLoading ? (
                   <button
                     type="button"
                     onClick={handleStopGeneration}
-                    className="p-2 bg-[#22262A] hover:bg-[#343A3F] text-rose-400 rounded-xl transition"
+                    className="p-2.5 bg-[#1A1D20] hover:bg-[#22262B] text-rose-400 rounded-xl transition border border-[#30353A]"
                     title="Stop generation"
                   >
                     <Square className="w-4 h-4 fill-rose-400" />
@@ -608,7 +608,7 @@ export default function ChatWorkspace({
                   <button
                     type="submit"
                     disabled={!inputQuestion.trim()}
-                    className="p-2 bg-[#E5B83D] hover:bg-[#F2C64B] disabled:opacity-40 text-[#111315] rounded-xl font-bold transition shadow-sm"
+                    className="p-2.5 bg-[#F5C542] hover:bg-[#FFD358] disabled:opacity-40 text-[#101214] rounded-xl font-bold transition shadow-sm"
                     title="Send question"
                   >
                     <Send className="w-4 h-4 stroke-[2.5]" />
@@ -616,8 +616,8 @@ export default function ChatWorkspace({
                 )}
               </div>
             </form>
-            <p className="text-[10px] text-center text-[#A0A6AC]/60 mt-2 font-mono">
-              Grounded in local ChromaDB vectors with Ollama LLM. Citations reference source document pages.
+            <p className="text-[10px] text-center text-[#A2A9B0]/60 mt-2 font-mono">
+              Grounded in local ChromaDB vectors with Ollama Llama 3.2. Every factual claim contains page-level citations.
             </p>
           </div>
         </div>
