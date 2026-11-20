@@ -80,29 +80,29 @@ export default function AppLayout({
   };
 
   return (
-    <div className="min-h-screen bg-carbon-primary flex flex-col md:flex-row text-silver-primary font-sans antialiased selection:bg-signal-yellow selection:text-carbon-deep">
+    <div className="min-h-screen bg-[#101214] flex flex-col md:flex-row text-[#F2F3F4] font-sans antialiased selection:bg-[#F5C542] selection:text-[#101214]">
       {/* Sidebar Desktop */}
       <aside
-        className={`hidden md:flex flex-col bg-[#111315] border-r border-[#343A3F] transition-all duration-200 z-30 select-none ${
+        className={`hidden md:flex flex-col bg-[#17191B] border-r border-[#30353A] transition-all duration-200 z-30 select-none ${
           isCollapsed ? 'w-16' : 'w-64'
         }`}
       >
         {/* Brand Header */}
-        <div className="p-3.5 border-b border-[#343A3F] flex items-center justify-between">
+        <div className="p-3.5 border-b border-[#30353A] flex items-center justify-between">
           <div
             onClick={() => setActiveTab('chat')}
             className="flex items-center gap-2.5 cursor-pointer overflow-hidden"
           >
-            <div className="w-8 h-8 rounded-lg bg-[#E5B83D] text-[#111315] flex items-center justify-center font-bold text-lg shadow-sm flex-shrink-0">
-              <Layers className="w-4 h-4 text-[#111315]" />
+            <div className="w-8 h-8 rounded-lg bg-[#F5C542] text-[#101214] flex items-center justify-center font-bold text-lg shadow-sm flex-shrink-0">
+              <Layers className="w-4 h-4 text-[#101214]" />
             </div>
             {!isCollapsed && (
               <div className="truncate">
-                <span className="font-bold text-base tracking-tight text-[#F0F1F2] block leading-tight">
+                <span className="font-bold text-base tracking-tight text-[#F2F3F4] block leading-tight">
                   DocNest
                 </span>
-                <span className="text-[10px] text-[#A0A6AC] tracking-wider uppercase block font-mono">
-                  Research AI
+                <span className="text-[10px] text-[#A2A9B0] tracking-wider uppercase block font-mono">
+                  Research Workspace
                 </span>
               </div>
             )}
@@ -110,7 +110,7 @@ export default function AppLayout({
 
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-1.5 text-[#A0A6AC] hover:text-[#F0F1F2] hover:bg-[#191C1F] rounded-md transition"
+            className="p-1.5 text-[#A2A9B0] hover:text-[#F2F3F4] hover:bg-[#1A1D20] rounded-md transition"
             title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
           >
             {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
@@ -124,7 +124,7 @@ export default function AppLayout({
               onNewSession();
               setActiveTab('chat');
             }}
-            className={`w-full flex items-center justify-center gap-2 py-2 px-3 bg-[#E5B83D] hover:bg-[#F2C64B] text-[#111315] text-xs font-semibold rounded-lg shadow-sm transition ${
+            className={`w-full flex items-center justify-center gap-2 py-2 px-3 bg-[#F5C542] hover:bg-[#FFD358] text-[#101214] text-xs font-bold rounded-xl shadow-sm transition ${
               isCollapsed ? 'px-2' : ''
             }`}
             title="Start New Research"
@@ -148,11 +148,11 @@ export default function AppLayout({
                   title={item.name}
                   className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-all ${
                     isActive
-                      ? 'bg-[#191C1F] text-[#E5B83D] border-l-2 border-[#E5B83D] font-semibold'
-                      : 'text-[#A0A6AC] hover:bg-[#191C1F] hover:text-[#F0F1F2]'
+                      ? 'bg-[#1A1D20] text-[#F5C542] border-l-2 border-[#F5C542] font-semibold'
+                      : 'text-[#A2A9B0] hover:bg-[#1A1D20] hover:text-[#F2F3F4]'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-[#E5B83D]' : 'text-[#A0A6AC]'}`} />
+                  <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-[#F5C542]' : 'text-[#A2A9B0]'}`} />
                   {!isCollapsed && <span className="truncate">{item.name}</span>}
                 </button>
               );
