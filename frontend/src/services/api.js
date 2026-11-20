@@ -151,6 +151,12 @@ export async function fetchDocumentStatus(docId) {
   return res.json();
 }
 
+export async function fetchRawDocumentText(docId) {
+  const res = await fetch(`/api/documents/${docId}/raw`, { headers: getHeaders() });
+  if (!res.ok) throw new Error('Failed to fetch raw extracted text');
+  return res.json();
+}
+
 export async function loadSampleDocuments(sampleType = 'all') {
   const res = await fetch(`/api/documents/load-sample?sample_type=${sampleType}`, {
     method: 'POST',
