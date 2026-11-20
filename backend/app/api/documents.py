@@ -1,11 +1,12 @@
 import json
 import uuid
 import logging
+import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, AsyncGenerator
 from fastapi import APIRouter, UploadFile, File, HTTPException, status, Depends, BackgroundTasks, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from backend.app.services.sample_generator import generate_sample_pdfs, settings as sample_settings
 from backend.app.services.validator import validate_document_file, validate_pdf_content, compute_sha256
@@ -231,6 +232,83 @@ async def get_document_status(doc_id: str):
             is_scanned=bool(row["is_scanned"]),
             updated_at=row["updated_at"],
         )
+
+
+@router.get("/{doc_id}/status/stream")
+async def stream_document_status(doc_id: str):
+    """
+    Server-Sent Events (SSE) streaming endpoint for real-time document ingestion
+    progress and stage transitions.
+    """
+    async def event_generator() -> AsyncGenerator[str, None]:
+        max_wait_seconds = 180
+        interval = 0.5
+        elapsed = 0.0
+
+        while elapsed < max_wait_seconds:
+            async with get_db_connection() as db:
+                cursor = await db.execute(
+                    """
+                    SELECT id, filename, status, progress_pct, error_msg, page_count, total_chunks, is_scanned
+                    FROM documents WHERE id = ?
+                    """,
+                    (doc_id,),
+                )
+                row = await cursor.fetchone()
+
+            if not row:
+                chroma = get_chroma_service()
+                doc = chroma.find_document_by_id(doc_id)
+                if doc:
+                    payload = {
+                        "event": "status",
+                        "doc_id": doc_id,
+                        "filename": doc.filename,
+                        "status": "ready",
+                        "progress_pct": 100,
+                        "error_msg": None,
+                        "total_chunks": doc.total_chunks,
+                        "page_count": doc.page_count,
+                    }
+                    yield f"data: {json.dumps(payload)}\n\n"
+                    break
+                payload = {
+                    "event": "error",
+                    "doc_id": doc_id,
+                    "detail": "Document not found",
+                }
+                yield f"data: {json.dumps(payload)}\n\n"
+                break
+
+            doc_status = row["status"]
+            payload = {
+                "event": "status",
+                "doc_id": row["id"],
+                "filename": row["filename"],
+                "status": doc_status,
+                "progress_pct": row["progress_pct"],
+                "error_msg": row["error_msg"],
+                "page_count": row["page_count"],
+                "total_chunks": row["total_chunks"],
+                "is_scanned": bool(row["is_scanned"]),
+            }
+            yield f"data: {json.dumps(payload)}\n\n"
+
+            if doc_status in ("ready", "failed"):
+                break
+
+            await asyncio.sleep(interval)
+            elapsed += interval
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.post("/{doc_id}/retry", response_model=DocumentStatusResponse)
