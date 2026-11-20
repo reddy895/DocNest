@@ -19,6 +19,7 @@ import {
   X,
   Bookmark,
   CheckCircle2,
+  Paperclip,
 } from 'lucide-react';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import ContextualResearchPanel from '../components/ContextualResearchPanel';
@@ -26,6 +27,7 @@ import {
   fetchSessionMessages,
   recordMessageFeedback,
   createChatSession,
+  uploadDocumentFile,
 } from '../services/api';
 
 export default function ChatWorkspace({
@@ -47,10 +49,13 @@ export default function ChatWorkspace({
   const [rightPanelTab, setRightPanelTab] = useState('citations'); // 'citations' | 'inspector' | 'scope'
   const [selectedDocIds, setSelectedDocIds] = useState(selectedDocId ? [selectedDocId] : []);
   const [savedNoteSuccess, setSavedNoteSuccess] = useState(null);
+  const [attachments, setAttachments] = useState([]);
+  const [isDragging, setIsDragging] = useState(false);
 
   const abortControllerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
+  const attachmentInputRef = useRef(null);
 
   // Sync selectedDocId prop into selectedDocIds array
   useEffect(() => {
@@ -137,10 +142,53 @@ export default function ChatWorkspace({
     }
   };
 
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      setAttachments((prev) => [...prev, ...files]);
+    }
+    if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+  };
+
+  const handleRemoveAttachment = (indexToRemove) => {
+    setAttachments((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length > 0) {
+      setAttachments((prev) => [...prev, ...files]);
+    }
+  };
+
   // Send or Stream question
   const handleSend = async (overrideText = null) => {
     const q = (overrideText || inputQuestion).trim();
     if (!q || isLoading) return;
+
+    // Upload pending attachments if any
+    if (attachments.length > 0) {
+      for (const file of attachments) {
+        try {
+          await uploadDocumentFile(file);
+        } catch (uploadErr) {
+          console.error('Failed to upload attachment:', uploadErr);
+        }
+      }
+      setAttachments([]);
+    }
 
     let targetSessionId = activeSessionId;
     if (!targetSessionId) {
@@ -573,47 +621,105 @@ export default function ChatWorkspace({
                 e.preventDefault();
                 handleSend();
               }}
-              className="relative flex items-end bg-[#17191B] border border-[#30353A] focus-within:border-[#F5C542] rounded-2xl p-2.5 transition shadow-xl"
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`relative flex flex-col bg-[#17191B] border transition shadow-xl rounded-2xl ${
+                isDragging
+                  ? 'border-[#F5C542] bg-[#F5C542]/5'
+                  : 'border-[#30353A] focus-within:border-[#F5C542]'
+              }`}
             >
-              <textarea
-                ref={textareaRef}
-                value={inputQuestion}
-                onChange={(e) => {
-                  setInputQuestion(e.target.value);
-                  e.target.style.height = 'auto';
-                  e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                placeholder="Ask anything about your documents... (Enter to send, Shift+Enter for newline)"
-                rows={1}
-                className="w-full bg-transparent border-none text-sm text-[#F2F3F4] placeholder-[#A2A9B0]/60 px-3 py-1.5 focus:outline-none resize-none max-h-52 leading-relaxed"
-              />
+              {/* Drag overlay indicator */}
+              {isDragging && (
+                <div className="absolute inset-0 bg-[#17191B]/90 backdrop-blur-sm rounded-2xl flex items-center justify-center gap-2 text-sm text-[#F5C542] font-medium z-10 pointer-events-none">
+                  <Paperclip className="w-5 h-5 animate-bounce" />
+                  <span>Drop PDF or documents here to attach</span>
+                </div>
+              )}
 
-              <div className="flex items-center gap-2 flex-shrink-0 pr-1 pb-0.5">
-                {isLoading ? (
-                  <button
-                    type="button"
-                    onClick={handleStopGeneration}
-                    className="p-2.5 bg-[#1A1D20] hover:bg-[#22262B] text-rose-400 rounded-xl transition border border-[#30353A]"
-                    title="Stop generation"
-                  >
-                    <Square className="w-4 h-4 fill-rose-400" />
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    disabled={!inputQuestion.trim()}
-                    className="p-2.5 bg-[#F5C542] hover:bg-[#FFD358] disabled:opacity-40 text-[#101214] rounded-xl font-bold transition shadow-sm"
-                    title="Send question"
-                  >
-                    <Send className="w-4 h-4 stroke-[2.5]" />
-                  </button>
-                )}
+              {/* Attachment Preview Chips */}
+              {attachments.length > 0 && (
+                <div className="flex flex-wrap gap-2 px-3 pt-2.5 pb-1 border-b border-[#30353A]/50">
+                  {attachments.map((file, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-2 px-2.5 py-1 bg-[#1A1D20] border border-[#30353A] rounded-lg text-xs text-[#F2F3F4]"
+                    >
+                      <Paperclip className="w-3.5 h-3.5 text-[#F5C542]" />
+                      <span className="truncate max-w-[150px] font-mono text-[11px]">{file.name}</span>
+                      <span className="text-[10px] text-[#A2A9B0]">({(file.size / 1024).toFixed(0)} KB)</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAttachment(idx)}
+                        className="text-[#A2A9B0] hover:text-rose-400 p-0.5 rounded transition"
+                        title="Remove file"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-end p-2.5 gap-2">
+                <input
+                  type="file"
+                  multiple
+                  ref={attachmentInputRef}
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => attachmentInputRef.current?.click()}
+                  className="p-2 text-[#A2A9B0] hover:text-[#F5C542] hover:bg-[#1A1D20] rounded-xl transition flex-shrink-0"
+                  title="Attach documents"
+                >
+                  <Paperclip className="w-4 h-4" />
+                </button>
+
+                <textarea
+                  ref={textareaRef}
+                  value={inputQuestion}
+                  onChange={(e) => {
+                    setInputQuestion(e.target.value);
+                    e.target.style.height = 'auto';
+                    e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  placeholder="Ask anything about your documents... (Enter to send, Shift+Enter for newline)"
+                  rows={1}
+                  className="w-full bg-transparent border-none text-sm text-[#F2F3F4] placeholder-[#A2A9B0]/60 px-2 py-1.5 focus:outline-none resize-none max-h-52 leading-relaxed"
+                />
+
+                <div className="flex items-center gap-2 flex-shrink-0 pr-1 pb-0.5">
+                  {isLoading ? (
+                    <button
+                      type="button"
+                      onClick={handleStopGeneration}
+                      className="p-2.5 bg-[#1A1D20] hover:bg-[#22262B] text-rose-400 rounded-xl transition border border-[#30353A]"
+                      title="Stop generation"
+                    >
+                      <Square className="w-4 h-4 fill-rose-400" />
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={!inputQuestion.trim() && attachments.length === 0}
+                      className="p-2.5 bg-[#F5C542] hover:bg-[#FFD358] disabled:opacity-40 text-[#101214] rounded-xl font-bold transition shadow-sm"
+                      title="Send question"
+                    >
+                      <Send className="w-4 h-4 stroke-[2.5]" />
+                    </button>
+                  )}
+                </div>
               </div>
             </form>
             <p className="text-[10px] text-center text-[#A2A9B0]/60 mt-2 font-mono">
