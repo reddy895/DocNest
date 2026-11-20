@@ -397,10 +397,12 @@ export default function AppLayout({
       </aside>
 
       {/* Mobile Top Header */}
-      <header className="md:hidden flex items-center justify-between p-3.5 bg-[#111315] border-b border-[#343A3F]">
+      <header className="md:hidden flex items-center justify-between p-3.5 bg-[#17191B] border-b border-[#30353A] sticky top-0 z-40">
         <div className="flex items-center gap-2">
-          <Layers className="w-5 h-5 text-[#E5B83D]" />
-          <span className="font-bold text-base text-[#F0F1F2]">DocNest</span>
+          <div className="w-7 h-7 rounded-lg bg-[#F5C542] text-[#101214] flex items-center justify-center font-bold text-sm shadow-sm">
+            <Layers className="w-4 h-4 text-[#101214]" />
+          </div>
+          <span className="font-bold text-base text-[#F2F3F4]">DocNest</span>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -408,49 +410,64 @@ export default function AppLayout({
               onNewSession();
               setActiveTab('chat');
             }}
-            className="p-1.5 bg-[#E5B83D] text-[#111315] rounded-md text-xs font-bold"
+            className="p-2 bg-[#F5C542] hover:bg-[#FFD358] text-[#101214] rounded-lg text-xs font-bold transition shadow-sm"
+            title="New Research"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4 h-4 stroke-[2.5]" />
           </button>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-1.5 text-[#A0A6AC] hover:text-[#F0F1F2] rounded-md hover:bg-[#191C1F]"
+            className="p-2 text-[#A2A9B0] hover:text-[#F2F3F4] rounded-lg hover:bg-[#1A1D20] border border-[#30353A] transition"
+            title="Toggle Menu"
           >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
           </button>
         </div>
       </header>
 
-      {/* Mobile Menu Dropdown */}
+      {/* Mobile Backdrop & Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden p-3 bg-[#191C1F] border-b border-[#343A3F] space-y-1 animate-fade-in">
-          {navigation.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                setActiveTab(item.id);
-                setMobileMenuOpen(false);
-              }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-xs font-medium ${
-                activeTab === item.id ? 'bg-[#22262A] text-[#E5B83D] font-bold' : 'text-[#F0F1F2]'
-              }`}
-            >
-              <item.icon className="w-4 h-4" />
-              <span>{item.name}</span>
-            </button>
-          ))}
-          {onOpenUpload && (
-            <button
-              onClick={() => {
-                onOpenUpload();
-                setMobileMenuOpen(false);
-              }}
-              className="w-full flex items-center justify-center gap-2 py-2 mt-2 bg-[#E5B83D] text-[#111315] font-semibold rounded-md text-xs"
-            >
-              <UploadCloud className="w-4 h-4" />
-              <span>Upload Document</span>
-            </button>
-          )}
+        <div
+          className="md:hidden fixed inset-0 z-30 bg-black/60 backdrop-blur-sm"
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <div
+            className="p-4 bg-[#17191B] border-b border-[#30353A] space-y-2 animate-fade-in shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="space-y-1">
+              {navigation.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition ${
+                    activeTab === item.id
+                      ? 'bg-[#1A1D20] text-[#F5C542] font-bold border-l-2 border-[#F5C542]'
+                      : 'text-[#F2F3F4] hover:bg-[#1A1D20]'
+                  }`}
+                >
+                  <item.icon className="w-4 h-4 shrink-0 text-[#F5C542]" />
+                  <span>{item.name}</span>
+                </button>
+              ))}
+            </div>
+
+            {onOpenUpload && (
+              <button
+                onClick={() => {
+                  onOpenUpload();
+                  setMobileMenuOpen(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2.5 mt-2 bg-[#F5C542] hover:bg-[#FFD358] text-[#101214] font-bold rounded-xl text-xs transition shadow-sm"
+              >
+                <UploadCloud className="w-4 h-4 stroke-[2.5]" />
+                <span>Upload Document</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
 
