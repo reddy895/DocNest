@@ -164,6 +164,7 @@ class StreamChatRequest(BaseModel):
     min_relevance_score: Optional[float] = Field(default=0.30, ge=0.0, le=1.0)
     temperature: Optional[float] = Field(default=0.1, ge=0.0, le=1.0)
     model: Optional[str] = None
+    search_mode: Optional[str] = Field(default="hybrid", description="Retrieval mode: hybrid, vector, or bm25")
 
 
 class ChatQueryResponse(BaseModel):

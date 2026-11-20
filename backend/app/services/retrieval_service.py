@@ -121,9 +121,11 @@ class HybridRetriever:
         workspace_id: Optional[str] = None,
         dense_limit: int = 20,
         sparse_limit: int = 20,
+        search_mode: str = "hybrid",
     ) -> List[RetrievalCandidate]:
         """
-        Query ChromaDB and BM25 concurrently and fuse ranks with RRF.
+        Query ChromaDB and/or BM25 based on search_mode ('hybrid', 'vector', 'bm25')
+        and fuse ranks with RRF.
         """
         # 1. Clean and normalize doc_ids
         clean_doc_ids: Optional[List[str]] = None
@@ -134,49 +136,52 @@ class HybridRetriever:
                 if d
             ]
 
-        # Query Dense ChromaDB with Scoping Filters
-        conditions = []
-        if clean_doc_ids and len(clean_doc_ids) == 1:
-            conditions.append({"doc_id": clean_doc_ids[0]})
-        elif clean_doc_ids and len(clean_doc_ids) > 1:
-            conditions.append({"doc_id": {"$in": clean_doc_ids}})
-
-        if workspace_id:
-            conditions.append({"workspace_id": workspace_id})
-
-        where_filter: Optional[Dict[str, Any]] = None
-        if len(conditions) == 1:
-            where_filter = conditions[0]
-        elif len(conditions) > 1:
-            where_filter = {"$and": conditions}
-
-        dense_raw = self.chroma.query_collection(
-            query_text=query,
-            n_results=dense_limit,
-            where_filter=where_filter,
-        )
-
         dense_candidates: List[Dict[str, Any]] = []
-        for match in dense_raw:
-            dense_candidates.append({
-                "chunk_id": match.chunk_id,
-                "doc_id": match.doc_id,
-                "filename": match.filename,
-                "page_number": match.page_number,
-                "chunk_index": match.chunk_index,
-                "text": match.text,
-                "score": match.similarity_score,
-                "section_heading": match.metadata.section_heading if hasattr(match.metadata, "section_heading") else None,
-                "workspace_id": match.metadata.workspace_id if hasattr(match.metadata, "workspace_id") else "Default Workspace",
-            })
+        if search_mode in ("hybrid", "vector"):
+            # Query Dense ChromaDB with Scoping Filters
+            conditions = []
+            if clean_doc_ids and len(clean_doc_ids) == 1:
+                conditions.append({"doc_id": clean_doc_ids[0]})
+            elif clean_doc_ids and len(clean_doc_ids) > 1:
+                conditions.append({"doc_id": {"$in": clean_doc_ids}})
+
+            if workspace_id:
+                conditions.append({"workspace_id": workspace_id})
+
+            where_filter: Optional[Dict[str, Any]] = None
+            if len(conditions) == 1:
+                where_filter = conditions[0]
+            elif len(conditions) > 1:
+                where_filter = {"$and": conditions}
+
+            dense_raw = self.chroma.query_collection(
+                query_text=query,
+                n_results=dense_limit,
+                where_filter=where_filter,
+            )
+
+            for match in dense_raw:
+                dense_candidates.append({
+                    "chunk_id": match.chunk_id,
+                    "doc_id": match.doc_id,
+                    "filename": match.filename,
+                    "page_number": match.page_number,
+                    "chunk_index": match.chunk_index,
+                    "text": match.text,
+                    "score": match.similarity_score,
+                    "section_heading": match.metadata.section_heading if hasattr(match.metadata, "section_heading") else None,
+                    "workspace_id": match.metadata.workspace_id if hasattr(match.metadata, "workspace_id") else "Default Workspace",
+                })
 
         # 2. Query Sparse BM25
-        sparse_results = self.bm25.search(
-            query=query,
-            top_k=sparse_limit,
-            doc_ids=clean_doc_ids,
-            workspace_id=workspace_id,
-        )
+        sparse_results: List[Dict[str, Any]] = []
+        if search_mode in ("hybrid", "bm25"):
+            sparse_results = self.bm25.search(
+                query=query,
+                top_k=sparse_limit,
+                doc_ids=clean_doc_ids,
+                workspace_id=workspace_id,
+            )
 
         # 3. Reciprocal Rank Fusion
         return reciprocal_rank_fusion(

@@ -55,6 +55,8 @@ export default function ChatWorkspace({
   const [isDragging, setIsDragging] = useState(false);
   const [selectedModel, setSelectedModel] = useState('llama3.2');
   const [showModelMenu, setShowModelMenu] = useState(false);
+  const [searchMode, setSearchMode] = useState('hybrid'); // 'hybrid' | 'vector' | 'bm25'
+  const [showSearchMenu, setShowSearchMenu] = useState(false);
 
   const abortControllerRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -242,6 +244,7 @@ export default function ChatWorkspace({
           doc_ids: cleanDocIds.length > 0 ? cleanDocIds : null,
           chat_history: messages.slice(-4),
           model: selectedModel,
+          search_mode: searchMode,
         }),
       });
 
@@ -727,6 +730,50 @@ export default function ChatWorkspace({
                           <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#101214] text-[#A2A9B0] border border-[#30353A]">
                             {m.badge}
                           </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Search Mode Toggle */}
+                <div className="relative flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowSearchMenu(!showSearchMenu)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1A1D20] hover:bg-[#22262B] border border-[#30353A] text-xs font-mono text-[#F2F3F4] rounded-xl transition"
+                    title="Select Retrieval Mode"
+                  >
+                    <Layers className="w-3.5 h-3.5 text-[#F5C542]" />
+                    <span className="hidden sm:inline text-[11px] font-medium capitalize">{searchMode}</span>
+                    <ChevronDown className="w-3 h-3 text-[#A2A9B0]" />
+                  </button>
+
+                  {showSearchMenu && (
+                    <div className="absolute bottom-full mb-2 left-0 w-48 bg-[#17191B] border border-[#30353A] rounded-xl shadow-2xl p-1 z-30">
+                      <div className="px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider text-[#A2A9B0]/70 border-b border-[#30353A]/50">
+                        Retrieval Strategy
+                      </div>
+                      {[
+                        { id: 'hybrid', name: 'Hybrid (RRF)', desc: 'Dense + Sparse BM25' },
+                        { id: 'vector', name: 'Semantic Vector', desc: 'Dense ChromaDB' },
+                        { id: 'bm25', name: 'Keyword BM25', desc: 'Exact Sparse Match' },
+                      ].map((sm) => (
+                        <button
+                          key={sm.id}
+                          type="button"
+                          onClick={() => {
+                            setSearchMode(sm.id);
+                            setShowSearchMenu(false);
+                          }}
+                          className={`w-full flex flex-col text-left px-2.5 py-1.5 rounded-lg text-xs transition ${
+                            searchMode === sm.id
+                              ? 'bg-[#F5C542]/15 text-[#F5C542] font-semibold'
+                              : 'text-[#F2F3F4] hover:bg-[#1A1D20]'
+                          }`}
+                        >
+                          <span className="font-medium">{sm.name}</span>
+                          <span className="text-[10px] text-[#A2A9B0]/80">{sm.desc}</span>
                         </button>
                       ))}
                     </div>

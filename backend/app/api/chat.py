@@ -59,12 +59,14 @@ async def stream_chat(request: StreamChatRequest):
         trace["query_rewriting_ms"] = round((time.time() - t0) * 1000, 2)
         trace["rewritten_query"] = rewritten_query
 
-        # Step 2: Hybrid Retrieval
-        yield f"data: {json.dumps({'event': 'status', 'stage': 'retrieving', 'message': 'Executing dense vector + BM25 sparse search...'})}\n\n"
+        # Step 2: Retrieval (Hybrid, Dense Vector, or BM25 Sparse)
+        search_mode = request.search_mode or "hybrid"
+        yield f"data: {json.dumps({'event': 'status', 'stage': 'retrieving', 'message': f'Executing {search_mode.capitalize()} retrieval...'})}\n\n"
         t1 = time.time()
-        candidates = retriever.retrieve(query=rewritten_query, top_k=20, doc_ids=target_docs)
+        candidates = retriever.retrieve(query=rewritten_query, top_k=20, doc_ids=target_docs, search_mode=search_mode)
         trace["retrieval_ms"] = round((time.time() - t1) * 1000, 2)
         trace["candidate_count"] = len(candidates)
+        trace["search_mode"] = search_mode
 
         # Step 3: Cross-Encoder Reranking
         yield f"data: {json.dumps({'event': 'status', 'stage': 'reranking', 'message': 'Cross-Encoder evaluating relevance scores...'})}\n\n"
