@@ -23,6 +23,7 @@ import {
   Check,
 } from 'lucide-react';
 import AuthModal from '../components/AuthModal';
+import WorkspaceSelector from '../components/WorkspaceSelector';
 
 export default function AppLayout({
   activeTab,
@@ -37,6 +38,10 @@ export default function AppLayout({
   onRenameSession = () => {},
   onPinSession = () => {},
   onDeleteSession = () => {},
+  workspaces = [],
+  activeWorkspace = null,
+  onSelectWorkspace = () => {},
+  onCreateWorkspace = () => {},
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -118,7 +123,7 @@ export default function AppLayout({
         </div>
 
         {/* New Research Button */}
-        <div className="p-3">
+        <div className="p-3 space-y-2">
           <button
             onClick={() => {
               onNewSession();
@@ -132,6 +137,15 @@ export default function AppLayout({
             <Plus className="w-4 h-4 flex-shrink-0 stroke-[2.5]" />
             {!isCollapsed && <span>New Research</span>}
           </button>
+
+          {!isCollapsed && (
+            <WorkspaceSelector
+              workspaces={workspaces}
+              activeWorkspace={activeWorkspace}
+              onSelectWorkspace={onSelectWorkspace}
+              onCreateWorkspace={onCreateWorkspace}
+            />
+          )}
         </div>
 
         {/* Conversation History & Navigation */}
