@@ -412,6 +412,99 @@ async def get_document_file(doc_id: str):
     )
 
 
+@router.get("/{doc_id}/preview")
+async def preview_document_file(doc_id: str):
+    """
+    Serve raw document file (PDF, DOCX, TXT, MD, CSV) with appropriate mime-type
+    for inline browser preview.
+    """
+    chroma = get_chroma_service()
+    doc = chroma.find_document_by_id(doc_id)
+    file_path = None
+    filename = None
+    if doc and doc.file_path:
+        file_path = Path(doc.file_path)
+        filename = doc.filename
+    else:
+        async with get_db_connection() as db:
+            cursor = await db.execute("SELECT file_path, filename FROM documents WHERE id = ?", (doc_id,))
+            row = await cursor.fetchone()
+            if row and row["file_path"]:
+                file_path = Path(row["file_path"])
+                filename = row["filename"]
+
+    if not file_path or not file_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document file for ID '{doc_id}' not found on disk.",
+        )
+
+    ext = file_path.suffix.lower()
+    mime_types = {
+        ".pdf": "application/pdf",
+        ".txt": "text/plain; charset=utf-8",
+        ".md": "text/markdown; charset=utf-8",
+        ".csv": "text/csv; charset=utf-8",
+        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    }
+    media_type = mime_types.get(ext, "application/octet-stream")
+
+    return FileResponse(
+        path=str(file_path),
+        media_type=media_type,
+        filename=filename or file_path.name,
+    )
+
+
+@router.get("/{doc_id}/raw")
+async def get_raw_extracted_text(doc_id: str):
+    """
+    Inspect raw extracted text and structured chunks for research transparency and debugging.
+    """
+    chroma = get_chroma_service()
+    chunks = chroma.get_document_chunks(doc_id)
+    doc = chroma.find_document_by_id(doc_id)
+    filename = doc.filename if doc else doc_id
+
+    if not chunks:
+        # Check SQLite or read file directly as fallback
+        async with get_db_connection() as db:
+            cursor = await db.execute("SELECT file_path, filename FROM documents WHERE id = ?", (doc_id,))
+            row = await cursor.fetchone()
+            if row and row["file_path"] and Path(row["file_path"]).exists():
+                filename = row["filename"]
+                try:
+                    with open(row["file_path"], "r", encoding="utf-8", errors="ignore") as f:
+                        content = f.read()
+                    return {
+                        "doc_id": doc_id,
+                        "filename": filename,
+                        "total_chunks": 1,
+                        "raw_text": content,
+                        "chunks": [{"chunk_id": f"{doc_id}_c0", "page_number": 1, "text": content[:2000]}],
+                    }
+                except Exception:
+                    pass
+
+    full_text = "\n\n".join([c.get("text", "") for c in chunks])
+    return {
+        "doc_id": doc_id,
+        "filename": filename,
+        "total_chunks": len(chunks),
+        "raw_text": full_text,
+        "chunks": [
+            {
+                "chunk_id": c.get("chunk_id"),
+                "chunk_index": c.get("chunk_index"),
+                "page_number": c.get("page_number"),
+                "section_heading": c.get("metadata", {}).get("section_heading") if isinstance(c.get("metadata"), dict) else None,
+                "text": c.get("text"),
+            }
+            for c in chunks
+        ],
+    }
+
+
 @router.patch("/{doc_id}", response_model=DocumentInfo)
 async def update_document_metadata(doc_id: str, payload: DocumentUpdateRequest):
     """

@@ -389,6 +389,35 @@ class ChromaService:
             logger.error(f"Error reading collection count: {e}")
             return 0
 
+    def count_chunks(self) -> int:
+        """Alias for count()."""
+        return self.count()
+
+    def get_document_chunks(self, doc_id: str) -> List[Dict[str, Any]]:
+        """Retrieve all stored chunks and metadata for a specific doc_id."""
+        try:
+            res = self.collection.get(where={"doc_id": doc_id}, include=["documents", "metadatas"])
+            ids = res.get("ids", [])
+            docs = res.get("documents", [])
+            metas = res.get("metadatas", [])
+            chunks = []
+            for i, cid in enumerate(ids):
+                meta = metas[i] if i < len(metas) else {}
+                text = docs[i] if i < len(docs) else ""
+                chunks.append({
+                    "chunk_id": cid,
+                    "chunk_index": meta.get("chunk_index", i),
+                    "page_number": meta.get("page_number", 1),
+                    "doc_id": doc_id,
+                    "metadata": meta,
+                    "text": text,
+                })
+            chunks.sort(key=lambda c: c.get("chunk_index", 0))
+            return chunks
+        except Exception as e:
+            logger.warning(f"Failed to get chunks for {doc_id}: {e}")
+            return []
+
     def reset_collection(self) -> None:
         """Reset and recreate the collection."""
         if self._client:
