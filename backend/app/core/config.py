@@ -64,10 +64,18 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE_MB: int = 50
     ALLOWED_EXTENSIONS: List[str] = [".pdf", ".docx", ".txt", ".md", ".csv"]
 
-    # MongoDB Integration (Optional Application Layer)
+    # MongoDB Integration (Primary Application Layer with SQLite fallback)
     MONGO_URI: str = "mongodb://localhost:27017"
     MONGO_DB_NAME: str = "docnest"
     MONGO_ENABLED: bool = False
+
+    # Security & Rate Limiting
+    RATE_LIMIT_PER_MINUTE: int = 120
+    DEFAULT_WORKSPACE: str = "Default Research Workspace"
+
+    # Optional Cloud API Integration (Ollama is primary local default)
+    OPENAI_API_KEY: str = ""
+    OPENAI_BASE_URL: str = ""
 
     def ensure_directories(self) -> None:
         """Create storage directories if they do not exist."""
