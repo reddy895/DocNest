@@ -6,10 +6,12 @@ from typing import Optional
 
 from backend.app.core.config import settings
 from backend.app.core.database import get_db_connection
+from backend.app.core.mongo import get_mongo_db
 from backend.app.models.document import DocumentRecord
-from backend.app.services.pdf_extractor import extract_pdf_pages
+from backend.app.services.document_router import get_document_router
 from backend.app.services.chunker import create_document_chunks
 from backend.app.services.chroma_service import get_chroma_service
+from backend.app.services.bm25_service import get_bm25_service
 
 logger = logging.getLogger("docnest.queue")
 
@@ -23,7 +25,7 @@ async def update_job_status(
     total_chunks: Optional[int] = None,
     is_scanned: Optional[bool] = None,
 ) -> None:
-    """Update ingestion job status in SQLite asynchronously."""
+    """Update ingestion job status in SQLite and MongoDB asynchronously."""
     try:
         now_iso = datetime.now(timezone.utc).isoformat()
         async with get_db_connection() as db:
@@ -47,6 +49,24 @@ async def update_job_status(
             query = f"UPDATE documents SET {', '.join(updates)} WHERE id = ?"
             await db.execute(query, tuple(params))
             await db.commit()
+
+        # Update MongoDB when available
+        mongo = get_mongo_db()
+        if mongo:
+            try:
+                m_set = {"status": status, "progress_pct": progress_pct, "updated_at": now_iso}
+                if error_msg is not None:
+                    m_set["error_msg"] = error_msg
+                if page_count is not None:
+                    m_set["page_count"] = page_count
+                if total_chunks is not None:
+                    m_set["total_chunks"] = total_chunks
+                if is_scanned is not None:
+                    m_set["is_scanned"] = is_scanned
+                await mongo.documents.update_one({"id": doc_id}, {"$set": m_set})
+            except Exception as m_err:
+                logger.debug(f"MongoDB job status sync deferred: {m_err}")
+
     except Exception as exc:
         logger.error(f"Failed to update job status for doc {doc_id}: {exc}")
 
@@ -63,32 +83,33 @@ async def process_document_ingestion(
 ) -> None:
     """
     Background worker pipeline executing granular stages:
-    queued -> parsing -> chunking -> embedding -> ready
+    queued -> parsing -> chunking -> embedding -> indexing -> ready
     """
     logger.info(f"Starting ingestion pipeline for doc_id={doc_id} ('{filename}')")
 
     try:
-        # Stage 1: Parsing
+        # Stage 1: Layout-Aware Parsing
         await update_job_status(doc_id, status="parsing", progress_pct=25)
-        # Run parsing in executor to avoid blocking event loop
         loop = asyncio.get_event_loop()
-        extraction_result = await loop.run_in_executor(
-            None, extract_pdf_pages, file_bytes, filename
+        router = get_document_router()
+
+        ingest_doc = await loop.run_in_executor(
+            None, router.route_and_extract, file_bytes, filename
         )
 
-        if extraction_result.error_message:
+        if ingest_doc.error:
             await update_job_status(
                 doc_id,
                 status="failed",
                 progress_pct=25,
-                error_msg=extraction_result.error_message,
+                error_msg=ingest_doc.error,
             )
             return
 
-        page_count = extraction_result.page_count
-        is_scanned = extraction_result.is_scanned
+        page_count = ingest_doc.page_count
+        is_scanned = ingest_doc.is_scanned
 
-        # Stage 2: Chunking
+        # Stage 2: Recursive Structure-Aware Chunking
         await update_job_status(
             doc_id,
             status="chunking",
@@ -103,7 +124,7 @@ async def process_document_ingestion(
             doc_id,
             filename,
             file_hash,
-            extraction_result.pages,
+            ingest_doc.pages,
             chunk_size,
             chunk_overlap,
             user_id,
@@ -112,7 +133,7 @@ async def process_document_ingestion(
 
         total_chunks = len(chunks)
 
-        # Stage 3: Embedding & Vector Storage
+        # Stage 3: Embedding & Dense ChromaDB Storage
         await update_job_status(
             doc_id,
             status="embedding",
@@ -140,7 +161,11 @@ async def process_document_ingestion(
             chunks,
         )
 
-        # Stage 4: Ready
+        # Stage 4: Synchronized Sparse BM25 Indexing
+        bm25_svc = get_bm25_service()
+        await loop.run_in_executor(None, bm25_svc.add_chunks, chunks)
+
+        # Stage 5: Ready
         await update_job_status(
             doc_id,
             status="ready",
