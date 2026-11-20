@@ -1,84 +1,108 @@
-import uuid
-from datetime import datetime, timezone
-import aiosqlite
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
-from backend.app.core.database import get_db
-from backend.app.core.security import hash_password, verify_password, create_access_token
 from backend.app.core.auth_dependency import get_current_user
-from backend.app.models.auth import UserRegister, UserLogin, UserOut, Token
+from backend.app.models.auth import (
+    UserRegister,
+    UserLogin,
+    UserOut,
+    Token,
+    RefreshTokenRequest,
+)
+from backend.app.services.auth_service import get_auth_service
 
+logger = logging.getLogger("docnest.api.auth")
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 
 @router.post("/register", response_model=Token, status_code=status.HTTP_201_CREATED)
-async def register(user_in: UserRegister, db: aiosqlite.Connection = Depends(get_db)):
-    """Register a new user account with an isolated workspace."""
-    # Check if email exists
-    cursor = await db.execute("SELECT id FROM users WHERE email = ?", (user_in.email.lower(),))
-    if await cursor.fetchone():
+async def register(user_in: UserRegister):
+    """Register a new user account with an isolated workspace and default settings."""
+    auth_service = get_auth_service()
+    try:
+        user_out, access_token, refresh_token = await auth_service.register_user(
+            email=user_in.email,
+            username=user_in.username,
+            password=user_in.password,
+            workspace_name=user_in.workspace_name,
+        )
+        return Token(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            user=user_out,
+        )
+    except ValueError as ve:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A user with this email address already exists.",
+            detail=str(ve),
         )
-
-    user_id = f"user_{uuid.uuid4().hex[:12]}"
-    now_iso = datetime.now(timezone.utc).isoformat()
-    pwd_hash = hash_password(user_in.password)
-    workspace = user_in.workspace_name or f"{user_in.username}'s Workspace"
-
-    await db.execute(
-        """
-        INSERT INTO users (id, email, username, password_hash, workspace_name, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (user_id, user_in.email.lower(), user_in.username, pwd_hash, workspace, now_iso),
-    )
-
-    # Initialize default user RAG settings
-    await db.execute(
-        """
-        INSERT INTO user_settings (user_id, chunk_size, chunk_overlap, top_k, min_relevance_score, temperature, hybrid_enabled, reranker_enabled, preset_name, updated_at)
-        VALUES (?, 512, 64, 5, 0.30, 0.1, 1, 1, 'balanced', ?)
-        """,
-        (user_id, now_iso),
-    )
-    await db.commit()
-
-    user_out = UserOut(
-        id=user_id,
-        email=user_in.email.lower(),
-        username=user_in.username,
-        workspace_name=workspace,
-        created_at=now_iso,
-    )
-    token = create_access_token({"sub": user_id, "email": user_out.email})
-
-    return Token(access_token=token, user=user_out)
+    except Exception as exc:
+        logger.error(f"Registration failure: {exc}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Registration could not be completed at this time.",
+        )
 
 
 @router.post("/login", response_model=Token)
-async def login(credentials: UserLogin, db: aiosqlite.Connection = Depends(get_db)):
-    """Authenticate with email and password to receive JWT access token."""
-    cursor = await db.execute(
-        "SELECT id, email, username, password_hash, workspace_name, created_at FROM users WHERE email = ?",
-        (credentials.email.lower(),),
-    )
-    row = await cursor.fetchone()
-    if not row or not verify_password(credentials.password, row["password_hash"]):
+async def login(credentials: UserLogin):
+    """Authenticate with email and password to receive JWT access and refresh tokens."""
+    auth_service = get_auth_service()
+    try:
+        user_out, access_token, refresh_token = await auth_service.authenticate_user(
+            email=credentials.email,
+            password=credentials.password,
+        )
+        return Token(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            user=user_out,
+        )
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except Exception as exc:
+        logger.error(f"Login failure: {exc}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication failed due to internal error.",
         )
 
-    user_out = UserOut(
-        id=row["id"],
-        email=row["email"],
-        username=row["username"],
-        workspace_name=row["workspace_name"],
-        created_at=row["created_at"],
+
+@router.post("/refresh", response_model=Token)
+async def refresh_access_token(payload: RefreshTokenRequest):
+    """Exchange a valid refresh token for a fresh access token."""
+    auth_service = get_auth_service()
+    decoded = auth_service.decode_token(payload.refresh_token)
+
+    if not decoded or decoded.get("type") != "refresh" or not decoded.get("sub"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user_id = decoded["sub"]
+    user_out = await auth_service.get_user_by_id(user_id)
+    if not user_out:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User associated with refresh token no longer exists.",
+        )
+
+    new_access_token = auth_service.create_access_token({
+        "sub": user_out.id,
+        "email": user_out.email,
+    })
+    new_refresh_token = auth_service.create_refresh_token(user_out.id)
+
+    return Token(
+        access_token=new_access_token,
+        refresh_token=new_refresh_token,
+        user=user_out,
     )
-    token = create_access_token({"sub": row["id"], "email": row["email"]})
-    return Token(access_token=token, user=user_out)
 
 
 @router.get("/me", response_model=UserOut)

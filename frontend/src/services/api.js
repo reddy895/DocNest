@@ -64,6 +64,18 @@ export async function fetchCurrentUser() {
   return res.json();
 }
 
+export async function refreshAccessToken(refreshToken) {
+  const res = await fetch('/api/auth/refresh', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+  if (!res.ok) throw new Error('Token refresh failed');
+  const data = await res.json();
+  if (data.access_token) setAuthToken(data.access_token);
+  return data;
+}
+
 // ---------------- SYSTEM & TELEMETRY ----------------
 export async function fetchHealth() {
   const res = await fetch('/api/system/health', { headers: getHeaders() });
