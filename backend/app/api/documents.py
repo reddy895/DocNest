@@ -468,6 +468,7 @@ async def delete_document(doc_id: str):
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    workspace_id: Optional[str] = Query("Default Workspace", description="Target research workspace"),
     async_processing: bool = Query(False, description="Run ingestion asynchronously in background queue"),
 ):
     """
@@ -511,6 +512,8 @@ async def upload_document(
     with open(file_path, "wb") as f:
         f.write(content)
 
+    ws_id = workspace_id or "Default Workspace"
+
     # Insert initial entry into SQLite
     async with get_db_connection() as db:
         await db.execute(
@@ -524,7 +527,7 @@ async def upload_document(
             (
                 doc_id,
                 "user_default_local",
-                "Default Workspace",
+                ws_id,
                 validation.filename,
                 validation.file_hash,
                 validation.file_size_bytes,
@@ -550,7 +553,7 @@ async def upload_document(
             filename=validation.filename,
             file_hash=validation.file_hash,
             user_id="user_default_local",
-            workspace_id="Default Workspace",
+            workspace_id=ws_id,
             chunk_size=settings.CHUNK_SIZE,
             chunk_overlap=settings.CHUNK_OVERLAP,
         )
@@ -574,7 +577,7 @@ async def upload_document(
         filename=validation.filename,
         file_hash=validation.file_hash,
         user_id="user_default_local",
-        workspace_id="Default Workspace",
+        workspace_id=ws_id,
         chunk_size=settings.CHUNK_SIZE,
         chunk_overlap=settings.CHUNK_OVERLAP,
     )
@@ -592,6 +595,140 @@ async def upload_document(
         progress_pct=100,
         is_scanned=doc_record.is_scanned if doc_record else False,
     )
+
+
+@router.post("/batch-upload", response_model=List[DocumentInfo], status_code=status.HTTP_201_CREATED)
+async def batch_upload_documents(
+    background_tasks: BackgroundTasks,
+    files: List[UploadFile] = File(...),
+    workspace_id: Optional[str] = Query("Default Workspace"),
+    async_processing: bool = Query(True),
+):
+    """
+    Multi-file concurrent document upload endpoint. Validates, records, and enqueues
+    multiple documents for asynchronous background processing.
+    """
+    chroma = get_chroma_service()
+    ws_id = workspace_id or "Default Workspace"
+    uploaded_records: List[DocumentInfo] = []
+
+    for file in files:
+        filename = file.filename or "document.pdf"
+        content = await file.read()
+
+        validation = validate_document_file(filename, content)
+        if not validation.is_valid:
+            continue
+
+        existing_doc = chroma.find_document_by_hash(validation.file_hash)
+        if existing_doc:
+            uploaded_records.append(
+                DocumentInfo(
+                    doc_id=existing_doc.doc_id,
+                    filename=existing_doc.filename,
+                    file_size_bytes=existing_doc.file_size_bytes,
+                    file_hash=existing_doc.file_hash,
+                    page_count=existing_doc.page_count,
+                    total_chunks=existing_doc.total_chunks,
+                    upload_date=existing_doc.upload_date,
+                    status="already_indexed",
+                    progress_pct=100,
+                    is_scanned=existing_doc.is_scanned,
+                )
+            )
+            continue
+
+        doc_id = f"doc_{uuid.uuid4().hex[:12]}"
+        now_iso = datetime.now(timezone.utc).isoformat()
+        ext = Path(validation.filename).suffix.lower() or ".pdf"
+        file_path = settings.DOCUMENTS_DIR / f"{doc_id}{ext}"
+        with open(file_path, "wb") as f:
+            f.write(content)
+
+        async with get_db_connection() as db:
+            await db.execute(
+                """
+                INSERT INTO documents (
+                    id, user_id, workspace_id, filename, file_hash, file_size_bytes,
+                    page_count, total_chunks, status, progress_pct, error_msg, is_scanned,
+                    tags, file_path, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    doc_id,
+                    "user_default_local",
+                    ws_id,
+                    validation.filename,
+                    validation.file_hash,
+                    validation.file_size_bytes,
+                    0,
+                    0,
+                    "queued" if async_processing else "parsing",
+                    0 if async_processing else 25,
+                    "",
+                    0,
+                    "[]",
+                    str(file_path),
+                    now_iso,
+                    now_iso,
+                ),
+            )
+            await db.commit()
+
+        if async_processing:
+            background_tasks.add_task(
+                process_document_ingestion,
+                doc_id=doc_id,
+                file_bytes=content,
+                filename=validation.filename,
+                file_hash=validation.file_hash,
+                user_id="user_default_local",
+                workspace_id=ws_id,
+                chunk_size=settings.CHUNK_SIZE,
+                chunk_overlap=settings.CHUNK_OVERLAP,
+            )
+            uploaded_records.append(
+                DocumentInfo(
+                    doc_id=doc_id,
+                    filename=validation.filename,
+                    file_size_bytes=validation.file_size_bytes,
+                    file_hash=validation.file_hash,
+                    page_count=0,
+                    total_chunks=0,
+                    upload_date=now_iso,
+                    status="queued",
+                    progress_pct=0,
+                    is_scanned=False,
+                )
+            )
+        else:
+            await process_document_ingestion(
+                doc_id=doc_id,
+                file_bytes=content,
+                filename=validation.filename,
+                file_hash=validation.file_hash,
+                user_id="user_default_local",
+                workspace_id=ws_id,
+                chunk_size=settings.CHUNK_SIZE,
+                chunk_overlap=settings.CHUNK_OVERLAP,
+            )
+            doc_record = chroma.find_document_by_id(doc_id)
+            uploaded_records.append(
+                DocumentInfo(
+                    doc_id=doc_id,
+                    filename=validation.filename,
+                    file_size_bytes=validation.file_size_bytes,
+                    file_hash=validation.file_hash,
+                    page_count=doc_record.page_count if doc_record else 1,
+                    total_chunks=doc_record.total_chunks if doc_record else 1,
+                    upload_date=now_iso,
+                    status="ready",
+                    progress_pct=100,
+                    is_scanned=doc_record.is_scanned if doc_record else False,
+                )
+            )
+
+    return uploaded_records
 
 
 # ---------------- COLLECTIONS MANAGEMENT ----------------
