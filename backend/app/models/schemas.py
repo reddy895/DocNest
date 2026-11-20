@@ -163,6 +163,7 @@ class StreamChatRequest(BaseModel):
     top_k: Optional[int] = Field(default=5, ge=1, le=12)
     min_relevance_score: Optional[float] = Field(default=0.30, ge=0.0, le=1.0)
     temperature: Optional[float] = Field(default=0.1, ge=0.0, le=1.0)
+    model: Optional[str] = None
 
 
 class ChatQueryResponse(BaseModel):

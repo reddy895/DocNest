@@ -20,6 +20,8 @@ import {
   Bookmark,
   CheckCircle2,
   Paperclip,
+  Cpu,
+  ChevronDown,
 } from 'lucide-react';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import ContextualResearchPanel from '../components/ContextualResearchPanel';
@@ -51,6 +53,8 @@ export default function ChatWorkspace({
   const [savedNoteSuccess, setSavedNoteSuccess] = useState(null);
   const [attachments, setAttachments] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('llama3.2');
+  const [showModelMenu, setShowModelMenu] = useState(false);
 
   const abortControllerRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -237,6 +241,7 @@ export default function ChatWorkspace({
           session_id: targetSessionId,
           doc_ids: cleanDocIds.length > 0 ? cleanDocIds : null,
           chat_history: messages.slice(-4),
+          model: selectedModel,
         }),
       });
 
@@ -679,6 +684,54 @@ export default function ChatWorkspace({
                 >
                   <Paperclip className="w-4 h-4" />
                 </button>
+
+                {/* Model Selector Dropdown */}
+                <div className="relative flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowModelMenu(!showModelMenu)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1A1D20] hover:bg-[#22262B] border border-[#30353A] text-xs font-mono text-[#F2F3F4] rounded-xl transition"
+                    title="Select AI Model"
+                  >
+                    <Cpu className="w-3.5 h-3.5 text-[#F5C542]" />
+                    <span className="hidden sm:inline text-[11px] font-medium">{selectedModel}</span>
+                    <ChevronDown className="w-3 h-3 text-[#A2A9B0]" />
+                  </button>
+
+                  {showModelMenu && (
+                    <div className="absolute bottom-full mb-2 left-0 w-52 bg-[#17191B] border border-[#30353A] rounded-xl shadow-2xl p-1 z-30">
+                      <div className="px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider text-[#A2A9B0]/70 border-b border-[#30353A]/50">
+                        Ollama & Local LLM
+                      </div>
+                      {[
+                        { id: 'llama3.2', name: 'Llama 3.2 (3B)', badge: 'Default' },
+                        { id: 'llama3.1:8b', name: 'Llama 3.1 (8B)', badge: '8B' },
+                        { id: 'mistral:7b', name: 'Mistral (7B)', badge: 'Fast' },
+                        { id: 'qwen2.5:7b', name: 'Qwen 2.5 (7B)', badge: 'Math/Code' },
+                        { id: 'deepseek-r1:8b', name: 'DeepSeek R1 (8B)', badge: 'Reasoning' },
+                      ].map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedModel(m.id);
+                            setShowModelMenu(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition ${
+                            selectedModel === m.id
+                              ? 'bg-[#F5C542]/15 text-[#F5C542] font-semibold'
+                              : 'text-[#F2F3F4] hover:bg-[#1A1D20]'
+                          }`}
+                        >
+                          <span className="truncate">{m.name}</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#101214] text-[#A2A9B0] border border-[#30353A]">
+                            {m.badge}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 <textarea
                   ref={textareaRef}

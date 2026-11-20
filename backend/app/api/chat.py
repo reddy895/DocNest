@@ -110,7 +110,7 @@ async def stream_chat(request: StreamChatRequest):
         # Step 5: LLM Generation Streaming
         yield f"data: {json.dumps({'event': 'status', 'stage': 'generating', 'message': 'Generating grounded response...'})}\n\n"
         prompt = format_grounded_prompt(rewritten_query, reranked)
-        active_model = await ollama.get_active_model()
+        active_model = request.model or await ollama.get_active_model()
 
         accumulated_text = []
         token_count = 0
