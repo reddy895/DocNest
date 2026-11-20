@@ -24,6 +24,7 @@ logger = logging.getLogger("docnest")
 
 from backend.app.core.db_init import initialize_all_databases
 from backend.app.core.mongo import mongo_manager
+from backend.app.core.middleware import register_error_handlers
 
 
 @asynccontextmanager
@@ -70,6 +71,9 @@ app.include_router(chat_router)
 app.include_router(eval_router)
 app.include_router(research_router)
 
+# Register centralized error handlers
+register_error_handlers(app)
+
 
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
@@ -93,19 +97,6 @@ async def add_process_time_header(request: Request, call_next):
                 "process_time": f"{process_time:.4f}s",
             },
         )
-
-
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    logger.warning(f"Validation error on {request.method} {request.url.path}: {exc.errors()}")
-    return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={
-            "error": "Validation Error",
-            "message": "Invalid request parameters or payload.",
-            "details": exc.errors(),
-        },
-    )
 
 
 @app.get("/", tags=["Root"])
