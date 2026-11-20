@@ -3,19 +3,19 @@
 @tailwind utilities;
 
 :root {
-  --bg-primary: #111315;
-  --bg-secondary: #191C1F;
-  --bg-surface: #22262A;
-  --bg-deep: #111315;
+  --bg-primary: #101214;
+  --bg-secondary: #17191B;
+  --bg-surface: #1A1D20;
+  --bg-deep: #101214;
 
-  --silver-primary: #F0F1F2;
-  --silver-secondary: #A0A6AC;
-  --silver-light: #F0F1F2;
-  --border-color: #343A3F;
+  --silver-primary: #F2F3F4;
+  --silver-secondary: #A2A9B0;
+  --silver-muted: #B8BEC4;
+  --border-color: #30353A;
 
-  --yellow-primary: #E5B83D;
-  --yellow-hover: #F2C64B;
-  --yellow-muted: #B58D2D;
+  --yellow-warm: #F5C542;
+  --yellow-hover: #FFD358;
+  --yellow-muted: #C49826;
 }
 
 body {
@@ -32,47 +32,47 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #171A1C;
+  background: #101214;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #555C61;
+  background: #30353A;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #969DA3;
+  background: #B8BEC4;
 }
 
 /* Carbon surface card utility */
 .carbon-card {
-  background-color: #292D30;
-  border: 1px solid #555C61;
-  border-radius: 0.5rem;
+  background-color: #1A1D20;
+  border: 1px solid #30353A;
+  border-radius: 0.75rem;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
 }
 
 .carbon-input {
-  background-color: #171A1C;
-  border: 1px solid #555C61;
-  color: #E0E3E5;
-  border-radius: 0.375rem;
+  background-color: #17191B;
+  border: 1px solid #30353A;
+  color: #F2F3F4;
+  border-radius: 0.5rem;
   transition: all 0.15s ease-in-out;
 }
 
 .carbon-input:focus {
   outline: none;
-  border-color: #F4D21F;
-  box-shadow: 0 0 0 1px #F4D21F;
+  border-color: #F5C542;
+  box-shadow: 0 0 0 1px #F5C542;
 }
 
-/* Signal Yellow primary action button */
+/* Warm Yellow primary action button */
 .btn-primary {
-  background-color: #F4D21F;
-  color: #171A1C;
+  background-color: #F5C542;
+  color: #101214;
   font-weight: 600;
   padding: 0.5rem 1rem;
-  border-radius: 0.375rem;
+  border-radius: 0.5rem;
   transition: all 0.15s ease-in-out;
   display: inline-flex;
   align-items: center;
@@ -81,23 +81,23 @@ body {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: #FFDF45;
-  box-shadow: 0 0 12px rgba(244, 210, 31, 0.3);
+  background-color: #FFD358;
+  box-shadow: 0 0 12px rgba(245, 197, 66, 0.3);
 }
 
 .btn-primary:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
 /* Secondary Titanium button */
 .btn-secondary {
-  background-color: #303538;
-  color: #E0E3E5;
-  border: 1px solid #555C61;
+  background-color: #1A1D20;
+  color: #F2F3F4;
+  border: 1px solid #30353A;
   font-weight: 500;
   padding: 0.5rem 1rem;
-  border-radius: 0.375rem;
+  border-radius: 0.5rem;
   transition: all 0.15s ease-in-out;
   display: inline-flex;
   align-items: center;
@@ -106,7 +106,6 @@ body {
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background-color: #3d4347;
-  border-color: #969DA3;
+  background-color: #22262B;
+  border-color: #B8BEC4;
 }
-
