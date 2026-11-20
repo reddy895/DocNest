@@ -13,6 +13,7 @@ from backend.app.api.documents import router as documents_router
 from backend.app.api.chat import router as chat_router
 from backend.app.api.eval import router as eval_router
 from backend.app.api.research import router as research_router
+from backend.app.api.workspaces import router as workspaces_router
 
 # Configure standard structured logging
 logging.basicConfig(
@@ -71,6 +72,7 @@ app.include_router(documents_router)
 app.include_router(chat_router)
 app.include_router(eval_router)
 app.include_router(research_router)
+app.include_router(workspaces_router)
 
 # Register centralized error handlers
 register_error_handlers(app)

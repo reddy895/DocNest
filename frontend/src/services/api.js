@@ -221,6 +221,51 @@ export async function deleteCollection(colId) {
   return res.json();
 }
 
+// ---------------- WORKSPACES ----------------
+export async function fetchWorkspaces() {
+  const res = await fetch('/api/workspaces', { headers: getHeaders() });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function createWorkspace(data) {
+  const res = await fetch('/api/workspaces', {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Failed to create workspace');
+  return res.json();
+}
+
+export async function updateWorkspace(wsId, data) {
+  const res = await fetch(`/api/workspaces/${wsId}`, {
+    method: 'PATCH',
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error('Failed to update workspace');
+  return res.json();
+}
+
+export async function deleteWorkspace(wsId) {
+  const res = await fetch(`/api/workspaces/${wsId}`, {
+    method: 'DELETE',
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to delete workspace');
+  return res.json();
+}
+
+export async function assignDocumentToWorkspace(wsId, docId) {
+  const res = await fetch(`/api/workspaces/${wsId}/documents/${docId}`, {
+    method: 'POST',
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to assign document to workspace');
+  return res.json();
+}
+
 // ---------------- SESSIONS & MESSAGES ----------------
 export async function fetchChatSessions() {
   const res = await fetch('/api/chat/sessions', { headers: getHeaders() });
