@@ -170,15 +170,15 @@ export default function AppLayout({
                   placeholder="Search chats..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-[#191C1F] border border-[#343A3F] rounded-md pl-7 pr-2 py-1.5 text-[11px] text-[#F0F1F2] placeholder-[#A0A6AC]/60 focus:outline-none focus:border-[#E5B83D]"
+                  className="w-full bg-[#1A1D20] border border-[#30353A] rounded-md pl-7 pr-2 py-1.5 text-[11px] text-[#F2F3F4] placeholder-[#A2A9B0]/60 focus:outline-none focus:border-[#F5C542]"
                 />
               </div>
 
               {/* Pinned Conversations */}
               {pinnedSessions.length > 0 && (
                 <div className="space-y-1">
-                  <div className="px-2 text-[10px] uppercase font-mono tracking-wider text-[#A0A6AC]/70 flex items-center gap-1">
-                    <Pin className="w-3 h-3 text-[#E5B83D]" />
+                  <div className="px-2 text-[10px] uppercase font-mono tracking-wider text-[#A2A9B0]/70 flex items-center gap-1">
+                    <Pin className="w-3 h-3 text-[#F5C542]" />
                     <span>Pinned</span>
                   </div>
                   {pinnedSessions.map((session) => (
@@ -190,12 +190,12 @@ export default function AppLayout({
                       }}
                       className={`group flex items-center justify-between px-2.5 py-1.5 rounded-md cursor-pointer transition ${
                         activeSessionId === session.id && activeTab === 'chat'
-                          ? 'bg-[#22262A] text-[#E5B83D] font-medium'
-                          : 'text-[#F0F1F2]/80 hover:bg-[#191C1F] hover:text-[#F0F1F2]'
+                          ? 'bg-[#1A1D20] text-[#F5C542] font-medium'
+                          : 'text-[#F2F3F4]/80 hover:bg-[#1A1D20] hover:text-[#F2F3F4]'
                       }`}
                     >
                       <div className="flex items-center gap-2 truncate pr-1">
-                        <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 text-[#E5B83D]" />
+                        <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 text-[#F5C542]" />
                         <span className="truncate text-xs">{session.title}</span>
                       </div>
                       <div className="hidden group-hover:flex items-center gap-1 flex-shrink-0">
@@ -205,9 +205,9 @@ export default function AppLayout({
                             onPinSession(session.id, false);
                           }}
                           title="Unpin"
-                          className="p-1 text-[#A0A6AC] hover:text-[#E5B83D]"
+                          className="p-1 text-[#A2A9B0] hover:text-[#F5C542]"
                         >
-                          <Pin className="w-3 h-3 fill-[#E5B83D]" />
+                          <Pin className="w-3 h-3 fill-[#F5C542]" />
                         </button>
                         <button
                           onClick={(e) => {
@@ -215,7 +215,7 @@ export default function AppLayout({
                             onDeleteSession(session.id);
                           }}
                           title="Delete"
-                          className="p-1 text-[#A0A6AC] hover:text-rose-400"
+                          className="p-1 text-[#A2A9B0] hover:text-rose-400"
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -227,11 +227,11 @@ export default function AppLayout({
 
               {/* Recent Conversations */}
               <div className="space-y-1">
-                <div className="px-2 text-[10px] uppercase font-mono tracking-wider text-[#A0A6AC]/70">
+                <div className="px-2 text-[10px] uppercase font-mono tracking-wider text-[#A2A9B0]/70">
                   Recent
                 </div>
                 {recentSessions.length === 0 ? (
-                  <div className="px-2 py-1.5 text-[11px] text-[#A0A6AC]/60 italic">
+                  <div className="px-2 py-1.5 text-[11px] text-[#A2A9B0]/60 italic">
                     No recent chats
                   </div>
                 ) : (
@@ -244,8 +244,8 @@ export default function AppLayout({
                       }}
                       className={`group flex items-center justify-between px-2.5 py-1.5 rounded-md cursor-pointer transition ${
                         activeSessionId === session.id && activeTab === 'chat'
-                          ? 'bg-[#22262A] text-[#E5B83D] font-medium'
-                          : 'text-[#F0F1F2]/80 hover:bg-[#191C1F] hover:text-[#F0F1F2]'
+                          ? 'bg-[#1A1D20] text-[#F5C542] font-medium'
+                          : 'text-[#F2F3F4]/80 hover:bg-[#1A1D20] hover:text-[#F2F3F4]'
                       }`}
                     >
                       {editingSessionId === session.id ? (
@@ -262,7 +262,7 @@ export default function AppLayout({
                               if (e.key === 'Escape') setEditingSessionId(null);
                             }}
                             autoFocus
-                            className="w-full bg-[#111315] border border-[#E5B83D] rounded px-1.5 py-0.5 text-xs text-[#F0F1F2] focus:outline-none"
+                            className="w-full bg-[#101214] border border-[#F5C542] rounded px-1.5 py-0.5 text-xs text-[#F2F3F4] focus:outline-none"
                           />
                           <button
                             onClick={(e) => saveRename(session.id, e)}
@@ -274,14 +274,14 @@ export default function AppLayout({
                       ) : (
                         <>
                           <div className="flex items-center gap-2 truncate pr-1">
-                            <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 text-[#A0A6AC]" />
+                            <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 text-[#A2A9B0]" />
                             <span className="truncate text-xs">{session.title}</span>
                           </div>
                           <div className="hidden group-hover:flex items-center gap-1 flex-shrink-0">
                             <button
                               onClick={(e) => startRename(session, e)}
                               title="Rename"
-                              className="p-1 text-[#A0A6AC] hover:text-[#F0F1F2]"
+                              className="p-1 text-[#A2A9B0] hover:text-[#F2F3F4]"
                             >
                               <Edit2 className="w-3 h-3" />
                             </button>
@@ -291,7 +291,7 @@ export default function AppLayout({
                                 onPinSession(session.id, true);
                               }}
                               title="Pin"
-                              className="p-1 text-[#A0A6AC] hover:text-[#E5B83D]"
+                              className="p-1 text-[#A2A9B0] hover:text-[#F5C542]"
                             >
                               <Pin className="w-3 h-3" />
                             </button>
@@ -301,7 +301,7 @@ export default function AppLayout({
                                 onDeleteSession(session.id);
                               }}
                               title="Delete"
-                              className="p-1 text-[#A0A6AC] hover:text-rose-400"
+                              className="p-1 text-[#A2A9B0] hover:text-rose-400"
                             >
                               <Trash2 className="w-3 h-3" />
                             </button>
@@ -317,7 +317,7 @@ export default function AppLayout({
         </div>
 
         {/* Sidebar Footer */}
-        <div className="p-3 border-t border-[#343A3F] bg-[#111315] space-y-2">
+        <div className="p-3 border-t border-[#30353A] bg-[#17191B] space-y-2">
           {/* Quick Upload action */}
           {onOpenUpload && !isCollapsed && (
             <button
