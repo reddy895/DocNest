@@ -62,6 +62,7 @@ export default function ChatWorkspace({
   const [showSearchMenu, setShowSearchMenu] = useState(false);
   const [editingMsgId, setEditingMsgId] = useState(null);
   const [editText, setEditText] = useState('');
+  const [highlightedCitationId, setHighlightedCitationId] = useState(null);
 
   const abortControllerRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -400,7 +401,13 @@ export default function ChatWorkspace({
   };
 
   // Click citation in message or right panel
-  const handleCitationClick = ({ filename, page_number }) => {
+  const handleCitationClick = ({ filename, page_number, source_id }) => {
+    if (source_id) {
+      setHighlightedCitationId(source_id);
+    }
+    setRightPanelTab('citations');
+    setRightPanelOpen(true);
+
     const doc = documents.find(
       (d) =>
         d.filename.toLowerCase() === filename.toLowerCase() ||
@@ -1006,6 +1013,7 @@ export default function ChatWorkspace({
           onSelectDocId(null);
         }}
         onCitationClick={handleCitationClick}
+        highlightedCitationId={highlightedCitationId}
       />
     </div>
   );
