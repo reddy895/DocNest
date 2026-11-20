@@ -267,10 +267,20 @@ export async function assignDocumentToWorkspace(wsId, docId) {
 }
 
 // ---------------- SESSIONS & MESSAGES ----------------
-export async function fetchChatSessions() {
-  const res = await fetch('/api/chat/sessions', { headers: getHeaders() });
+export async function fetchChatSessions(query = '', workspaceId = null, limit = 50, offset = 0) {
+  let url = '/api/chat/sessions';
+  if (query || workspaceId || limit !== 50 || offset !== 0) {
+    const params = new URLSearchParams();
+    if (query) params.append('q', query);
+    if (workspaceId) params.append('workspace_id', workspaceId);
+    if (limit) params.append('limit', limit);
+    if (offset) params.append('offset', offset);
+    url = `/api/conversations?${params.toString()}`;
+  }
+  const res = await fetch(url, { headers: getHeaders() });
   if (!res.ok) return [];
-  return res.json();
+  const data = await res.json();
+  return Array.isArray(data) ? data : (data.items || []);
 }
 
 export async function createChatSession(title = 'New Conversation') {
