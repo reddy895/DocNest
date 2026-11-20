@@ -24,7 +24,7 @@ logger = logging.getLogger("docnest")
 
 from backend.app.core.db_init import initialize_all_databases
 from backend.app.core.mongo import mongo_manager
-from backend.app.core.middleware import register_error_handlers
+from backend.app.core.middleware import register_error_handlers, CorrelationIdMiddleware
 
 
 @asynccontextmanager
@@ -61,6 +61,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(CorrelationIdMiddleware)
 
 app.include_router(health_router)
 app.include_router(system_router)
@@ -73,30 +74,6 @@ app.include_router(research_router)
 
 # Register centralized error handlers
 register_error_handlers(app)
-
-
-@app.middleware("http")
-async def add_process_time_header(request: Request, call_next):
-    start_time = time.time()
-    try:
-        response = await call_next(request)
-        process_time = time.time() - start_time
-        response.headers["X-Process-Time"] = f"{process_time:.4f}s"
-        if request.url.path.startswith("/api/"):
-            logger.info(f"API {request.method} {request.url.path} completed in {process_time*1000:.1f}ms (HTTP {response.status_code})")
-        return response
-    except Exception as exc:
-        process_time = time.time() - start_time
-        logger.error(f"Unhandled error processing {request.method} {request.url.path}: {exc}", exc_info=True)
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={
-                "error": "Internal Server Error",
-                "message": "An unexpected error occurred while processing your request.",
-                "path": request.url.path,
-                "process_time": f"{process_time:.4f}s",
-            },
-        )
 
 
 @app.get("/", tags=["Root"])
