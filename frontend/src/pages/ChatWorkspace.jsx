@@ -314,37 +314,39 @@ export default function ChatWorkspace({
   const isEmpty = messages.length === 0;
 
   const suggestedPrompts = [
-    { title: 'Summarize Documents', desc: 'Synthesize key executive takeaways and core findings', icon: '📑', prompt: 'Please provide a comprehensive executive summary of the uploaded documents.' },
-    { title: 'Extract Definitions', desc: 'Identify critical domain terms, metrics, and definitions', icon: '📖', prompt: 'Extract and define all important terms, technical concepts, and key metrics found across the documents.' },
-    { title: 'Compare Key Findings', desc: 'Highlight agreements, differences, and contradictions', icon: '⚖️', prompt: 'Compare the primary arguments and findings across the documents, highlighting any contradictions.' },
-    { title: 'Generate Exam Questions', desc: 'Create study and review questions with answers', icon: '❓', prompt: 'Generate 5 insightful conceptual and technical questions based on the uploaded document evidence.' },
+    { title: 'Summarize documents', desc: 'Synthesize executive takeaways and core findings', icon: '📑', prompt: 'Summarize my uploaded documents with key takeaways and conclusions.' },
+    { title: 'Find key findings', desc: 'Identify primary discoveries, results, and claims', icon: '🔍', prompt: 'Find the most important findings and core conclusions across the uploaded documents.' },
+    { title: 'Compare documents', desc: 'Highlight agreements, divergences, and contradictions', icon: '⚖️', prompt: 'Compare two research papers or documents, highlighting agreements and contradictions.' },
+    { title: 'Explain simply', desc: 'Break down complex concepts into accessible terms', icon: '💡', prompt: 'Explain this document in simple language for a general audience.' },
+    { title: 'Extract statistics', desc: 'Extract percentages, metrics, benchmarks, and data', icon: '📊', prompt: 'Extract key statistics, quantitative metrics, and performance data from the documents.' },
+    { title: 'Generate report', desc: 'Create a comprehensive cited research briefing', icon: '📝', prompt: 'Generate a structured report with methodology, findings, and page citations.' },
   ];
 
   return (
-    <div className="flex-1 flex h-[calc(100vh-3.5rem)] md:h-screen overflow-hidden bg-[#111315] text-[#F0F1F2]">
+    <div className="flex-1 flex h-[calc(100vh-3.5rem)] md:h-screen overflow-hidden bg-[#101214] text-[#F2F3F4]">
       {/* CENTER: Main Conversation View */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         {/* Top Header Bar */}
-        <div className="h-13 border-b border-[#343A3F] px-4 md:px-6 flex items-center justify-between bg-[#111315]/80 backdrop-blur z-10 flex-shrink-0">
+        <div className="h-13 border-b border-[#30353A] px-4 md:px-6 flex items-center justify-between bg-[#17191B]/90 backdrop-blur z-10 flex-shrink-0">
           <div className="flex items-center gap-2 truncate">
-            <span className="text-xs font-mono uppercase tracking-wider text-[#A0A6AC]">
+            <span className="text-xs font-mono uppercase tracking-wider text-[#A2A9B0]">
               Scope:
             </span>
             {selectedDocIds.length === 0 ? (
-              <span className="px-2 py-0.5 rounded text-xs font-medium bg-[#191C1F] border border-[#343A3F] text-[#F0F1F2]">
+              <span className="px-2 py-0.5 rounded text-xs font-medium bg-[#1A1D20] border border-[#30353A] text-[#F2F3F4]">
                 All Documents ({documents.length})
               </span>
             ) : (
               <div className="flex items-center gap-1">
-                <span className="px-2 py-0.5 rounded text-xs font-medium bg-[#E5B83D]/15 border border-[#E5B83D]/50 text-[#E5B83D] truncate max-w-xs">
-                  {documents.find((d) => d.doc_id === selectedDocIds[0])?.filename || '1 Document'}
+                <span className="px-2 py-0.5 rounded text-xs font-medium bg-[#F5C542]/15 border border-[#F5C542]/50 text-[#F5C542] truncate max-w-xs">
+                  {documents.find((d) => (d.doc_id || d.id) === selectedDocIds[0])?.filename || '1 Document'}
                 </span>
                 <button
                   onClick={() => {
                     setSelectedDocIds([]);
                     onSelectDocId(null);
                   }}
-                  className="text-xs text-[#A0A6AC] hover:text-[#F0F1F2] p-0.5"
+                  className="text-xs text-[#A2A9B0] hover:text-[#F2F3F4] p-0.5"
                   title="Clear document filter"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -356,16 +358,16 @@ export default function ChatWorkspace({
           <div className="flex items-center gap-2">
             <button
               onClick={() => setRightPanelOpen(!rightPanelOpen)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition ${
                 rightPanelOpen
-                  ? 'bg-[#191C1F] text-[#E5B83D] border-[#E5B83D]/60'
-                  : 'bg-[#191C1F] text-[#A0A6AC] border-[#343A3F] hover:text-[#F0F1F2]'
+                  ? 'bg-[#1A1D20] text-[#F5C542] border-[#F5C542]/60'
+                  : 'bg-[#1A1D20] text-[#A2A9B0] border-[#30353A] hover:text-[#F2F3F4]'
               }`}
             >
               <FileText className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Research Context</span>
               {activeCitations.length > 0 && (
-                <span className="ml-1 px-1.5 py-0.2 bg-[#E5B83D] text-[#111315] font-bold rounded-full text-[10px]">
+                <span className="ml-1 px-1.5 py-0.2 bg-[#F5C542] text-[#101214] font-bold rounded-full text-[10px]">
                   {activeCitations.length}
                 </span>
               )}
@@ -378,14 +380,14 @@ export default function ChatWorkspace({
           {isEmpty ? (
             /* ChatGPT-Inspired Centered Empty State */
             <div className="max-w-2xl mx-auto h-full flex flex-col items-center justify-center text-center py-10">
-              <div className="w-12 h-12 rounded-xl bg-[#E5B83D]/10 border border-[#E5B83D]/30 flex items-center justify-center text-[#E5B83D] mb-4 shadow-sm">
-                <Sparkles className="w-6 h-6 text-[#E5B83D]" />
+              <div className="w-12 h-12 rounded-2xl bg-[#F5C542]/10 border border-[#F5C542]/30 flex items-center justify-center text-[#F5C542] mb-4 shadow-sm">
+                <Sparkles className="w-6 h-6 text-[#F5C542]" />
               </div>
-              <h2 className="text-xl md:text-2xl font-bold text-[#F0F1F2] mb-2 tracking-tight">
-                Where should we begin your research?
+              <h2 className="text-xl md:text-2xl font-bold text-[#F2F3F4] mb-2 tracking-tight">
+                Your documents. Your knowledge. One intelligent workspace.
               </h2>
-              <p className="text-xs md:text-sm text-[#A0A6AC] max-w-md mb-8">
-                Ask questions across your uploaded documents. Answers are strictly grounded in document passages with page citations.
+              <p className="text-xs md:text-sm text-[#A2A9B0] max-w-md mb-8">
+                Ask questions, explore research, compare documents, and turn information into insights.
               </p>
 
               {/* Prompt Suggestions Grid */}
@@ -394,15 +396,15 @@ export default function ChatWorkspace({
                   <button
                     key={idx}
                     onClick={() => handleSend(item.prompt)}
-                    className="p-3.5 bg-[#191C1F] hover:bg-[#22262A] border border-[#343A3F] hover:border-[#E5B83D]/60 rounded-xl transition text-left group"
+                    className="p-3.5 bg-[#17191B] hover:bg-[#1A1D20] border border-[#30353A] hover:border-[#F5C542]/60 rounded-xl transition text-left group shadow-sm"
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-base">{item.icon}</span>
-                      <span className="text-xs font-semibold text-[#F0F1F2] group-hover:text-[#E5B83D] transition">
+                      <span className="text-xs font-semibold text-[#F2F3F4] group-hover:text-[#F5C542] transition">
                         {item.title}
                       </span>
                     </div>
-                    <p className="text-[11px] text-[#A0A6AC] line-clamp-2 leading-relaxed">
+                    <p className="text-[11px] text-[#A2A9B0] line-clamp-2 leading-relaxed">
                       {item.desc}
                     </p>
                   </button>
