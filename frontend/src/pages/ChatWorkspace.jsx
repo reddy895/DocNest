@@ -493,11 +493,6 @@ export default function ChatWorkspace({
             </button>
           </div>
         </div>
-                </span>
-              )}
-            </button>
-          </div>
-        </div>
 
         {/* Message Feed / Empty State */}
         <div className="flex-1 overflow-y-auto px-4 md:px-6 py-6 space-y-6">
