@@ -3,15 +3,15 @@
 @tailwind utilities;
 
 :root {
-  --bg-primary: #101214;
-  --bg-secondary: #17191B;
-  --bg-surface: #1A1D20;
-  --bg-deep: #101214;
+  --bg-primary: #0C0D0E;
+  --bg-secondary: #121417;
+  --bg-surface: #181B1F;
+  --bg-deep: #090A0B;
 
-  --silver-primary: #F2F3F4;
-  --silver-secondary: #A2A9B0;
-  --silver-muted: #B8BEC4;
-  --border-color: #30353A;
+  --silver-primary: #F0F2F5;
+  --silver-secondary: #8E95A0;
+  --silver-muted: #636B78;
+  --border-color: #20242A;
 
   --yellow-warm: #F5C542;
   --yellow-hover: #FFD358;
@@ -19,93 +19,115 @@
 }
 
 body {
-  background-color: var(--bg-primary);
-  color: var(--silver-primary);
+  background-color: #0C0D0E;
+  color: #F0F2F5;
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
 }
 
-/* Custom dark scrollbar matching Forged Carbon aesthetic */
+/* Minimal dark scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #101214;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #30353A;
-  border-radius: 3px;
+  background: #20242A;
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #B8BEC4;
+  background: #3A4048;
 }
 
-/* Carbon surface card utility */
+/* Minimal carbon surface cards */
 .carbon-card {
-  background-color: #1A1D20;
-  border: 1px solid #30353A;
+  background-color: #121417;
+  border: 1px solid #20242A;
   border-radius: 0.75rem;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
 }
 
 .carbon-input {
-  background-color: #17191B;
-  border: 1px solid #30353A;
-  color: #F2F3F4;
+  background-color: #121417;
+  border: 1px solid #20242A;
+  color: #F0F2F5;
   border-radius: 0.5rem;
-  transition: all 0.15s ease-in-out;
+  transition: border-color 0.15s ease;
 }
 
 .carbon-input:focus {
-  outline: none;
   border-color: #F5C542;
-  box-shadow: 0 0 0 1px #F5C542;
+  outline: none;
 }
 
-/* Warm Yellow primary action button */
-.btn-primary {
-  background-color: #F5C542;
-  color: #101214;
+/* Markdown prose rendering */
+.prose-carbon {
+  color: #E2E5E9;
+  line-height: 1.65;
+}
+
+.prose-carbon h1,
+.prose-carbon h2,
+.prose-carbon h3,
+.prose-carbon h4 {
+  color: #F0F2F5;
   font-weight: 600;
-  padding: 0.5rem 1rem;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.prose-carbon p {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.prose-carbon ul,
+.prose-carbon ol {
+  padding-left: 1.25rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.prose-carbon code {
+  font-family: 'JetBrains Mono', monospace;
+  background-color: #181B1F;
+  border: 1px solid #20242A;
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.25rem;
+  font-size: 0.85em;
+  color: #F5C542;
+}
+
+.prose-carbon pre {
+  background-color: #090A0B;
+  border: 1px solid #20242A;
   border-radius: 0.5rem;
-  transition: all 0.15s ease-in-out;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
+  padding: 0.875rem;
+  overflow-x: auto;
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
-.btn-primary:hover:not(:disabled) {
-  background-color: #FFD358;
-  box-shadow: 0 0 12px rgba(245, 197, 66, 0.3);
+.prose-carbon table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
-.btn-primary:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+.prose-carbon th,
+.prose-carbon td {
+  border: 1px solid #20242A;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
 }
 
-/* Secondary Titanium button */
-.btn-secondary {
-  background-color: #1A1D20;
-  color: #F2F3F4;
-  border: 1px solid #30353A;
-  font-weight: 500;
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  transition: all 0.15s ease-in-out;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background-color: #22262B;
-  border-color: #B8BEC4;
+.prose-carbon th {
+  background-color: #181B1F;
+  color: #F0F2F5;
+  font-weight: 600;
 }
