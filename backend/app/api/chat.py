@@ -64,6 +64,12 @@ async def stream_chat(request: StreamChatRequest):
         yield f"data: {json.dumps({'event': 'status', 'stage': 'retrieving', 'message': f'Executing {search_mode.capitalize()} retrieval...'})}\n\n"
         t1 = time.time()
         candidates = retriever.retrieve(query=rewritten_query, top_k=20, doc_ids=target_docs, search_mode=search_mode)
+        
+        # Scoped document fallback: if specific doc_ids returned 0 candidates, search entire collection
+        if not candidates and target_docs:
+            logger.info(f"Target docs {target_docs} yielded 0 candidates; searching all indexed documents.")
+            candidates = retriever.retrieve(query=rewritten_query, top_k=20, doc_ids=None, search_mode=search_mode)
+
         trace["retrieval_ms"] = round((time.time() - t1) * 1000, 2)
         trace["candidate_count"] = len(candidates)
         trace["search_mode"] = search_mode
@@ -98,11 +104,26 @@ async def stream_chat(request: StreamChatRequest):
 
         # Check Abstention Guardrail
         if not reranked or max_score < min_score:
-            abstention_text = (
-                f"I could not find sufficient evidence in the uploaded documents to answer this question. "
-                f"The highest relevance score for your query was {max_score:.2f}, which is below "
-                f"our confidence threshold of {min_score:.2f}."
-            )
+            chroma_svc = get_chroma_service()
+            total_chunks_in_db = chroma_svc.count()
+
+            if total_chunks_in_db == 0:
+                abstention_text = (
+                    "No documents are currently indexed in your DocNest workspace. "
+                    "Please upload a PDF, DOCX, TXT, MD, or CSV document to start asking questions."
+                )
+            elif not candidates:
+                abstention_text = (
+                    "I could not find matching passages in the uploaded documents for your query. "
+                    "Please verify that the relevant document is uploaded or try rephrasing your search keywords."
+                )
+            else:
+                abstention_text = (
+                    f"I could not find sufficient evidence in the uploaded documents to answer this question. "
+                    f"The highest relevance score for your query was {max_score:.2f}, which is below "
+                    f"our confidence threshold of {min_score:.2f}."
+                )
+
             for word in abstention_text.split(" "):
                 yield f"data: {json.dumps({'event': 'token', 'token': word + ' '})}\n\n"
             trace["total_ms"] = round((time.time() - start_time) * 1000, 2)
