@@ -497,17 +497,19 @@ export default function ChatWorkspace({
         {/* Message Feed / Empty State */}
         <div className="flex-1 overflow-y-auto px-4 md:px-6 py-6 space-y-6">
           {isEmpty ? (
-            /* ChatGPT-Inspired Centered Empty State */
-            <div className="max-w-2xl mx-auto h-full flex flex-col items-center justify-center text-center py-10">
-              <div className="w-12 h-12 rounded-2xl bg-[#F5C542]/10 border border-[#F5C542]/30 flex items-center justify-center text-[#F5C542] mb-4 shadow-sm">
-                <Sparkles className="w-6 h-6 text-[#F5C542]" />
+            /* Centered DocNest Hero & Minimal Starter Prompts */
+            <div className="max-w-2xl mx-auto h-full flex flex-col items-center justify-center text-center py-10 transition-all duration-300">
+              <div className="flex flex-col items-center space-y-3 mb-8">
+                <div className="w-12 h-12 rounded-2xl bg-[#F5C542]/10 border border-[#F5C542]/20 flex items-center justify-center text-[#F5C542] shadow-sm">
+                  <Sparkles className="w-6 h-6 text-[#F5C542]" />
+                </div>
+                <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#F0F2F5]">
+                  DocNest
+                </h1>
+                <p className="text-xs sm:text-sm text-[#8E95A0] max-w-sm font-normal leading-relaxed">
+                  Your documents. Your questions. Clear answers.
+                </p>
               </div>
-              <h2 className="text-xl md:text-2xl font-bold text-[#F2F3F4] mb-2 tracking-tight">
-                Your documents. Your knowledge. One intelligent workspace.
-              </h2>
-              <p className="text-xs md:text-sm text-[#A2A9B0] max-w-md mb-8">
-                Ask questions, explore research, compare documents, and turn information into insights.
-              </p>
 
               {/* Prompt Suggestions Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full text-left">
@@ -515,15 +517,15 @@ export default function ChatWorkspace({
                   <button
                     key={idx}
                     onClick={() => handleSend(item.prompt)}
-                    className="p-3.5 bg-[#17191B] hover:bg-[#1A1D20] border border-[#30353A] hover:border-[#F5C542]/60 rounded-xl transition text-left group shadow-sm"
+                    className="p-3.5 bg-[#121417] hover:bg-[#181B1F] border border-[#20242A] hover:border-[#F5C542]/50 rounded-xl transition text-left group shadow-sm"
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-base">{item.icon}</span>
-                      <span className="text-xs font-semibold text-[#F2F3F4] group-hover:text-[#F5C542] transition">
+                      <span className="text-xs font-semibold text-[#F0F2F5] group-hover:text-[#F5C542] transition">
                         {item.title}
                       </span>
                     </div>
-                    <p className="text-[11px] text-[#A2A9B0] line-clamp-2 leading-relaxed">
+                    <p className="text-[11px] text-[#8E95A0] line-clamp-2 leading-relaxed">
                       {item.desc}
                     </p>
                   </button>
