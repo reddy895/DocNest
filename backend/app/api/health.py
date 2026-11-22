@@ -15,7 +15,7 @@ async def get_health():
     """
     uptime_seconds = time.time() - START_TIME
 
-    # Check Ollama status
+    # Check Ollama status with auto-start attempt
     ollama_status = "unavailable"
     ollama_models = []
     has_target_model = False
@@ -28,8 +28,24 @@ async def get_health():
                 models = data.get("models", [])
                 ollama_models = [m.get("name", "") for m in models]
                 has_target_model = any(settings.OLLAMA_MODEL in m for m in ollama_models)
-    except Exception as exc:
-        ollama_status = f"disconnected: {str(exc)}"
+    except Exception:
+        # Attempt daemon auto-recovery
+        from backend.app.services.ollama_service import OllamaService
+        recovered = OllamaService.ensure_ollama_daemon()
+        if recovered:
+            try:
+                async with httpx.AsyncClient(timeout=3.0) as client:
+                    resp = await client.get(f"{settings.OLLAMA_BASE_URL}/api/tags")
+                    if resp.status_code == 200:
+                        ollama_status = "connected"
+                        data = resp.json()
+                        models = data.get("models", [])
+                        ollama_models = [m.get("name", "") for m in models]
+                        has_target_model = any(settings.OLLAMA_MODEL in m for m in ollama_models)
+            except Exception as e:
+                ollama_status = f"disconnected: {e}"
+        else:
+            ollama_status = "disconnected"
 
     # Check Chroma storage directory
     chroma_dir_exists = settings.CHROMA_DIR.exists()
