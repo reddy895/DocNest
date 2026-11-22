@@ -140,7 +140,15 @@ npm run dev
 
 ---
 
-## 6. Verification & Automated Testing
+## 6. Ollama Supervisor & Minimal UI
+
+- **Ollama Supervisor:** Automatically detects whether Ollama daemon is running at `http://localhost:11434` when the backend launches. If offline, the backend lifespan supervisor automatically spawns `ollama serve` and polls until connected.
+- **Minimal Obsidian Palette:** Clean, distraction-free matte carbon surfaces (`#0C0D0E`, `#121417`), subtle hairline borders (`#20242A`), crisp titanium silver text (`#F0F2F5`), and warm yellow accents (`#F5C542`).
+- **Interactive Centered Hero:** Prominent centered "DocNest" brand hero with starter prompts that gracefully disappears as soon as you enter a message or begin research.
+
+---
+
+## 7. Verification & Automated Testing
 
 Run backend test suites:
 ```bash
@@ -153,5 +161,5 @@ cd frontend && npm run build
 
 ---
 
-## 7. License
+## 8. License
 DocNest is distributed under the MIT License.
