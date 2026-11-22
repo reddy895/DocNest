@@ -34,6 +34,8 @@ from backend.app.core.middleware import register_error_handlers, CorrelationIdMi
 async def lifespan(app: FastAPI):
     logger.info("Starting DocNest API service...")
     await initialize_all_databases()
+    from backend.app.services.ollama_service import OllamaService
+    OllamaService.ensure_ollama_daemon()
     yield
     logger.info("Shutting down DocNest API service...")
     await mongo_manager.disconnect()

@@ -17,6 +17,78 @@ class OllamaService:
         self.default_model = settings.OLLAMA_MODEL
         self.timeout = float(settings.OLLAMA_TIMEOUT)
 
+    @classmethod
+    def ensure_ollama_daemon(cls) -> bool:
+        """
+        Verify if Ollama service is listening on configured host/port.
+        If offline, attempt to spawn 'ollama serve' in background supervisor process.
+        """
+        import os
+        import shutil
+        import subprocess
+        import socket
+        import time
+        from urllib.parse import urlparse
+
+        base_url = settings.OLLAMA_BASE_URL.rstrip("/")
+        host = "127.0.0.1"
+        port = 11434
+        try:
+            parsed = urlparse(base_url)
+            if parsed.hostname:
+                host = parsed.hostname
+            if parsed.port:
+                port = parsed.port
+        except Exception:
+            pass
+
+        # 1. Quick socket check
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(0.6)
+        is_open = s.connect_ex((host, port)) == 0
+        s.close()
+
+        if is_open:
+            logger.info(f"Ollama daemon is online at {base_url}.")
+            return True
+
+        # 2. Not open - attempt auto-start if on localhost
+        if host in ("127.0.0.1", "localhost", "0.0.0.0"):
+            possible_bins = [
+                shutil.which("ollama"),
+                os.path.expanduser("~/.local/bin/ollama"),
+                "/usr/local/bin/ollama",
+                "/usr/bin/ollama",
+            ]
+            bin_path = next((b for b in possible_bins if b and os.path.exists(b)), None)
+            if not bin_path:
+                logger.warning("Ollama binary not found on system PATH to auto-start.")
+                return False
+
+            logger.info(f"Auto-launching Ollama daemon via '{bin_path} serve'...")
+            try:
+                subprocess.Popen(
+                    [bin_path, "serve"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    stdin=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+                # Wait up to 5 seconds for Ollama port to bind
+                for _ in range(10):
+                    time.sleep(0.5)
+                    s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s2.settimeout(0.5)
+                    ready = s2.connect_ex((host, port)) == 0
+                    s2.close()
+                    if ready:
+                        logger.info("Ollama daemon auto-started successfully and is now online.")
+                        return True
+            except Exception as e:
+                logger.warning(f"Failed to auto-start Ollama daemon: {e}")
+
+        return False
+
     async def check_health(self) -> Dict[str, Any]:
         """
         Verify connection to Ollama and determine available models.
