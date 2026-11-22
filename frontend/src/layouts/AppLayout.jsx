@@ -85,28 +85,28 @@ export default function AppLayout({
   };
 
   return (
-    <div className="min-h-screen bg-[#101214] flex flex-col md:flex-row text-[#F2F3F4] font-sans antialiased selection:bg-[#F5C542] selection:text-[#101214]">
+    <div className="min-h-screen bg-[#0C0D0E] flex flex-col md:flex-row text-[#F0F2F5] font-sans antialiased selection:bg-[#F5C542] selection:text-[#0C0D0E]">
       {/* Sidebar Desktop */}
       <aside
-        className={`hidden md:flex flex-col bg-[#17191B] border-r border-[#30353A] transition-all duration-200 z-30 select-none ${
+        className={`hidden md:flex flex-col bg-[#121417] border-r border-[#20242A] transition-all duration-200 z-30 select-none ${
           isCollapsed ? 'w-16' : 'w-64'
         }`}
       >
         {/* Brand Header */}
-        <div className="p-3.5 border-b border-[#30353A] flex items-center justify-between">
+        <div className="p-3.5 border-b border-[#20242A] flex items-center justify-between">
           <div
             onClick={() => setActiveTab('chat')}
             className="flex items-center gap-2.5 cursor-pointer overflow-hidden"
           >
-            <div className="w-8 h-8 rounded-lg bg-[#F5C542] text-[#101214] flex items-center justify-center font-bold text-lg shadow-sm flex-shrink-0">
-              <Layers className="w-4 h-4 text-[#101214]" />
+            <div className="w-8 h-8 rounded-lg bg-[#F5C542] text-[#0C0D0E] flex items-center justify-center font-bold text-lg shadow-sm flex-shrink-0">
+              <Layers className="w-4 h-4 text-[#0C0D0E]" />
             </div>
             {!isCollapsed && (
               <div className="truncate">
-                <span className="font-bold text-base tracking-tight text-[#F2F3F4] block leading-tight">
+                <span className="font-bold text-base tracking-tight text-[#F0F2F5] block leading-tight">
                   DocNest
                 </span>
-                <span className="text-[10px] text-[#A2A9B0] tracking-wider uppercase block font-mono">
+                <span className="text-[10px] text-[#8E95A0] tracking-wider uppercase block font-mono">
                   Research Workspace
                 </span>
               </div>
@@ -115,7 +115,7 @@ export default function AppLayout({
 
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-1.5 text-[#A2A9B0] hover:text-[#F2F3F4] hover:bg-[#1A1D20] rounded-md transition"
+            className="p-1.5 text-[#8E95A0] hover:text-[#F0F2F5] hover:bg-[#181B1F] rounded-md transition"
             title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
           >
             {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
@@ -129,7 +129,7 @@ export default function AppLayout({
               onNewSession();
               setActiveTab('chat');
             }}
-            className={`w-full flex items-center justify-center gap-2 py-2 px-3 bg-[#F5C542] hover:bg-[#FFD358] text-[#101214] text-xs font-bold rounded-xl shadow-sm transition ${
+            className={`w-full flex items-center justify-center gap-2 py-2 px-3 bg-[#F5C542] hover:bg-[#FFD358] text-[#0C0D0E] text-xs font-bold rounded-xl shadow-sm transition ${
               isCollapsed ? 'px-2' : ''
             }`}
             title="Start New Research"
@@ -162,11 +162,11 @@ export default function AppLayout({
                   title={item.name}
                   className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-all ${
                     isActive
-                      ? 'bg-[#1A1D20] text-[#F5C542] border-l-2 border-[#F5C542] font-semibold'
-                      : 'text-[#A2A9B0] hover:bg-[#1A1D20] hover:text-[#F2F3F4]'
+                      ? 'bg-[#181B1F] text-[#F5C542] border-l-2 border-[#F5C542] font-semibold'
+                      : 'text-[#8E95A0] hover:bg-[#181B1F] hover:text-[#F0F2F5]'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-[#F5C542]' : 'text-[#A2A9B0]'}`} />
+                  <Icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-[#F5C542]' : 'text-[#8E95A0]'}`} />
                   {!isCollapsed && <span className="truncate">{item.name}</span>}
                 </button>
               );
@@ -175,7 +175,7 @@ export default function AppLayout({
 
           {/* Persistent Conversation History (Visible when not collapsed) */}
           {!isCollapsed && (
-            <div className="pt-2 border-t border-[#343A3F]/60 space-y-3">
+            <div className="pt-2 border-t border-[#20242A] space-y-3">
               {/* Search History Input */}
               <div className="relative px-1">
                 <Search className="w-3.5 h-3.5 absolute left-3 top-2 text-[#A0A6AC]" />
@@ -331,12 +331,12 @@ export default function AppLayout({
         </div>
 
         {/* Sidebar Footer */}
-        <div className="p-3 border-t border-[#30353A] bg-[#17191B] space-y-2">
+        <div className="p-3 border-t border-[#20242A] bg-[#121417] space-y-2">
           {/* Quick Upload action */}
           {onOpenUpload && !isCollapsed && (
             <button
               onClick={onOpenUpload}
-              className="w-full flex items-center justify-center gap-2 py-1.5 px-2 bg-[#1A1D20] hover:bg-[#22262B] border border-[#30353A] text-[#F2F3F4] rounded-lg text-[11px] font-medium transition"
+              className="w-full flex items-center justify-center gap-2 py-1.5 px-2 bg-[#181B1F] hover:bg-[#20242A] border border-[#20242A] text-[#F0F2F5] rounded-lg text-[11px] font-medium transition"
             >
               <UploadCloud className="w-3.5 h-3.5 text-[#F5C542]" />
               <span>Upload Document</span>
@@ -346,7 +346,7 @@ export default function AppLayout({
           {/* Model Status Pill */}
           <div
             onClick={() => setActiveTab('models')}
-            className="flex items-center justify-between p-2 bg-[#1A1D20] border border-[#30353A] rounded-lg cursor-pointer hover:border-[#F5C542]/60 transition"
+            className="flex items-center justify-between p-2 bg-[#181B1F] border border-[#20242A] rounded-lg cursor-pointer hover:border-[#F5C542]/50 transition"
             title="Configure Active Ollama Model"
           >
             <div className="flex items-center gap-2 truncate">
@@ -356,21 +356,21 @@ export default function AppLayout({
                 }`}
               />
               {!isCollapsed && (
-                <span className="text-xs font-mono text-[#F2F3F4] truncate">
+                <span className="text-xs font-mono text-[#F0F2F5] truncate">
                   {configuredModel}
                 </span>
               )}
             </div>
             {!isCollapsed && (
-              <span className="text-[10px] text-[#A2A9B0] font-mono">131K ctx</span>
+              <span className="text-[10px] text-[#8E95A0] font-mono">131K ctx</span>
             )}
           </div>
 
           {/* User Workspace Profile Badge */}
-          <div className="pt-1 border-t border-[#30353A]/50">
+          <div className="pt-1 border-t border-[#20242A]">
             <button
               onClick={() => setAuthModalOpen(true)}
-              className="w-full flex items-center justify-between p-2 bg-[#1A1D20]/60 hover:bg-[#1A1D20] border border-[#30353A] rounded-xl transition text-[#A2A9B0] hover:text-[#F2F3F4] group"
+              className="w-full flex items-center justify-between p-2 bg-[#181B1F]/60 hover:bg-[#181B1F] border border-[#20242A] rounded-xl transition text-[#8E95A0] hover:text-[#F0F2F5] group"
               title="User Account & Preferences"
             >
               <div className="flex items-center gap-2.5 truncate">
@@ -379,17 +379,17 @@ export default function AppLayout({
                 </div>
                 {!isCollapsed && (
                   <div className="truncate text-left">
-                    <span className="text-xs font-semibold text-[#F2F3F4] block truncate leading-tight">
+                    <span className="text-xs font-semibold text-[#F0F2F5] block truncate leading-tight">
                       {currentUser?.full_name || currentUser?.username || 'Local Researcher'}
                     </span>
-                    <span className="text-[10px] text-[#A2A9B0] font-mono block truncate">
+                    <span className="text-[10px] text-[#8E95A0] font-mono block truncate">
                       {currentUser?.workspace_name || 'Default Workspace'}
                     </span>
                   </div>
                 )}
               </div>
               {!isCollapsed && (
-                <SettingsIcon className="w-3.5 h-3.5 text-[#A2A9B0] group-hover:text-[#F5C542] transition-colors" />
+                <SettingsIcon className="w-3.5 h-3.5 text-[#8E95A0] group-hover:text-[#F5C542] transition-colors" />
               )}
             </button>
           </div>
@@ -397,12 +397,12 @@ export default function AppLayout({
       </aside>
 
       {/* Mobile Top Header */}
-      <header className="md:hidden flex items-center justify-between p-3.5 bg-[#17191B] border-b border-[#30353A] sticky top-0 z-40">
+      <header className="md:hidden flex items-center justify-between p-3.5 bg-[#121417] border-b border-[#20242A] sticky top-0 z-40">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-[#F5C542] text-[#101214] flex items-center justify-center font-bold text-sm shadow-sm">
-            <Layers className="w-4 h-4 text-[#101214]" />
+          <div className="w-7 h-7 rounded-lg bg-[#F5C542] text-[#0C0D0E] flex items-center justify-center font-bold text-sm shadow-sm">
+            <Layers className="w-4 h-4 text-[#0C0D0E]" />
           </div>
-          <span className="font-bold text-base text-[#F2F3F4]">DocNest</span>
+          <span className="font-bold text-base text-[#F0F2F5]">DocNest</span>
         </div>
         <div className="flex items-center gap-2">
           <button
