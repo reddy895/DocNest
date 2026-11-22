@@ -61,12 +61,15 @@ async def stream_chat(request: StreamChatRequest):
         trace["rewritten_query"] = rewritten_query
 
         # Check for conversational greeting / meta-question
-        greeting_match = re.match(
-            r"^(hi|hello|hey|greetings|good\s+(morning|afternoon|evening)|who\s+are\s+you|what\s+can\s+you\s+do|help|what\s+is\s+docnest)[\s.?!]*$",
-            request.question.strip(),
-            re.IGNORECASE,
+        is_greeting = bool(
+            re.search(
+                r"\b(hi|hello|hey|greetings|good\s+(morning|afternoon|evening)|who\s+are\s+you|what\s+can\s+you\s+do|what\s+is\s+docnest)\b",
+                request.question,
+                re.IGNORECASE,
+            )
+            and len(request.question.split()) <= 10
         )
-        if greeting_match and not target_docs:
+        if is_greeting and not target_docs:
             greeting_resp = (
                 "Hello! I am DocNest Intelligence, your document research assistant. "
                 "You can upload PDF, DOCX, TXT, MD, or CSV files and ask questions to explore insights with source citations. "
