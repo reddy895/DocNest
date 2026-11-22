@@ -1,4 +1,5 @@
 import json
+import re
 import time
 import logging
 from typing import Optional, List, Dict, Any, AsyncGenerator
@@ -58,6 +59,25 @@ async def stream_chat(request: StreamChatRequest):
             rewritten_query = await ollama.rewrite_conversational_query(request.question, request.chat_history)
         trace["query_rewriting_ms"] = round((time.time() - t0) * 1000, 2)
         trace["rewritten_query"] = rewritten_query
+
+        # Check for conversational greeting / meta-question
+        greeting_match = re.match(
+            r"^(hi|hello|hey|greetings|good\s+(morning|afternoon|evening)|who\s+are\s+you|what\s+can\s+you\s+do|help|what\s+is\s+docnest)[\s.?!]*$",
+            request.question.strip(),
+            re.IGNORECASE,
+        )
+        if greeting_match and not target_docs:
+            greeting_resp = (
+                "Hello! I am DocNest Intelligence, your document research assistant. "
+                "You can upload PDF, DOCX, TXT, MD, or CSV files and ask questions to explore insights with source citations. "
+                "How can I help you today?"
+            )
+            yield f"data: {json.dumps({'event': 'retrieval', 'citations': [], 'trace': trace})}\n\n"
+            for word in greeting_resp.split(" "):
+                yield f"data: {json.dumps({'event': 'token', 'token': word + ' '})}\n\n"
+            trace["total_ms"] = round((time.time() - start_time) * 1000, 2)
+            yield f"data: {json.dumps({'event': 'done', 'full_text': greeting_resp, 'is_grounded': False, 'trace': trace})}\n\n"
+            return
 
         # Step 2: Retrieval (Hybrid, Dense Vector, or BM25 Sparse)
         search_mode = request.search_mode or "hybrid"
