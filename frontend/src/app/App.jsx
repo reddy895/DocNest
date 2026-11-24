@@ -3,6 +3,7 @@ import AppShell from '../components/layout/AppShell';
 import DocumentLibrary from './pages/DocumentLibrary';
 import ChatWorkspace from './pages/ChatWorkspace';
 import ResearchStudio from './pages/ResearchStudio';
+import SavedNotes from './pages/SavedNotes';
 import Settings from './pages/Settings';
 import UploadModal from '../components/documents/UploadModal';
 import DocumentViewer from '../components/documents/DocumentViewer';
@@ -178,6 +179,10 @@ export default function App() {
             documents={documents}
             onOpenViewer={handleOpenViewer}
           />
+        )}
+
+        {activeTab === 'notes' && (
+          <SavedNotes onOpenResearchStudio={() => setActiveTab('research')} />
         )}
 
         {activeTab === 'settings' && (

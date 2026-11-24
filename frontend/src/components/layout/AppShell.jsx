@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Layers, Menu, Plus, X } from 'lucide-react';
 import Sidebar from '../sidebar/Sidebar';
+import AuthModal from '../ui/AuthModal';
 import { cn } from '../../lib/cn';
 
 export default function AppShell({
@@ -9,9 +10,18 @@ export default function AppShell({
   systemStatus,
   onOpenUpload,
   onNewSession,
+  sessions = [],
+  activeSessionId = null,
+  onSelectSession,
+  onRenameSession,
+  onPinSession,
+  onDeleteSession,
   children,
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
 
   const handleNewChat = () => {
     onNewSession?.();
@@ -26,13 +36,28 @@ export default function AppShell({
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground md:flex-row">
-      <aside className="hidden w-64 flex-shrink-0 border-r border-border md:block">
+      <aside
+        className={cn(
+          'hidden flex-shrink-0 border-r border-border transition-[width] duration-200 md:block',
+          isCollapsed ? 'w-16' : 'w-64'
+        )}
+      >
         <Sidebar
           activeTab={activeTab}
           onNavigate={handleNavigate}
           onNewChat={handleNewChat}
           onOpenUpload={onOpenUpload}
           systemStatus={systemStatus}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={() => setIsCollapsed((collapsed) => !collapsed)}
+          sessions={sessions}
+          activeSessionId={activeSessionId}
+          onSelectSession={onSelectSession}
+          onRenameSession={onRenameSession}
+          onPinSession={onPinSession}
+          onDeleteSession={onDeleteSession}
+          currentUser={currentUser}
+          onOpenProfile={() => setAuthModalOpen(true)}
         />
       </aside>
 
@@ -72,7 +97,7 @@ export default function AppShell({
           aria-hidden="true"
         >
           <div
-            className={cn('h-full w-72 max-w-[85vw] animate-slide-up border-r border-border shadow-2xl')}
+            className="h-full w-72 max-w-[85vw] animate-slide-up border-r border-border shadow-2xl"
             onClick={(event) => event.stopPropagation()}
             role="dialog"
             aria-modal="true"
@@ -88,12 +113,32 @@ export default function AppShell({
                 setMobileMenuOpen(false);
               }}
               systemStatus={systemStatus}
+              sessions={sessions}
+              activeSessionId={activeSessionId}
+              onSelectSession={(id) => {
+                onSelectSession?.(id);
+                setMobileMenuOpen(false);
+              }}
+              onRenameSession={onRenameSession}
+              onPinSession={onPinSession}
+              onDeleteSession={onDeleteSession}
+              currentUser={currentUser}
+              onOpenProfile={() => {
+                setAuthModalOpen(true);
+                setMobileMenuOpen(false);
+              }}
             />
           </div>
         </div>
       )}
 
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">{children}</main>
+
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        onAuthSuccess={(user) => setCurrentUser(user)}
+      />
     </div>
   );
 }
