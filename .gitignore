@@ -54,6 +54,10 @@ yarn-error.log*
 .env.local
 .env.*.local
 
+# Frontend source library (do not ignore)
+!frontend/src/lib/
+!frontend/src/lib/**
+
 # Databases & User uploads
 backend/documents/*
 !backend/documents/.gitkeep
