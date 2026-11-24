@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import AppLayout from '../components/layout/AppLayout';
+import AppShell from '../components/layout/AppShell';
 import DocumentLibrary from './pages/DocumentLibrary';
 import ChatWorkspace from './pages/ChatWorkspace';
 import ResearchStudio from './pages/ResearchStudio';
@@ -136,7 +136,7 @@ export default function App() {
 
   return (
     <>
-      <AppLayout
+      <AppShell
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         systemStatus={systemStatus}
@@ -186,7 +186,7 @@ export default function App() {
             onRefreshStatus={loadInitialData}
           />
         )}
-      </AppLayout>
+      </AppShell>
 
       {/* Upload Modal */}
       <UploadModal
