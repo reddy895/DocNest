@@ -27,6 +27,7 @@ import {
 import MarkdownRenderer from '../../components/chat/MarkdownRenderer';
 import ContextualResearchPanel from '../../components/chat/ContextualResearchPanel';
 import WelcomeScreen from '../../components/chat/WelcomeScreen';
+import ChatComposer from '../../components/chat/ChatComposer';
 import {
   fetchSessionMessages,
   recordMessageFeedback,
@@ -57,19 +58,14 @@ export default function ChatWorkspace({
   const [selectedDocIds, setSelectedDocIds] = useState(selectedDocId ? [selectedDocId] : []);
   const [savedNoteSuccess, setSavedNoteSuccess] = useState(null);
   const [attachments, setAttachments] = useState([]);
-  const [isDragging, setIsDragging] = useState(false);
   const [selectedModel, setSelectedModel] = useState('llama3.2');
-  const [showModelMenu, setShowModelMenu] = useState(false);
   const [searchMode, setSearchMode] = useState('hybrid'); // 'hybrid' | 'vector' | 'bm25'
-  const [showSearchMenu, setShowSearchMenu] = useState(false);
   const [editingMsgId, setEditingMsgId] = useState(null);
   const [editText, setEditText] = useState('');
   const [highlightedCitationId, setHighlightedCitationId] = useState(null);
 
   const abortControllerRef = useRef(null);
   const messagesEndRef = useRef(null);
-  const textareaRef = useRef(null);
-  const attachmentInputRef = useRef(null);
 
   // Sync selectedDocId prop into selectedDocIds array
   useEffect(() => {
@@ -156,35 +152,14 @@ export default function ChatWorkspace({
     }
   };
 
-  const handleFileSelect = (e) => {
-    const files = Array.from(e.target.files || []);
+  const handleAddAttachments = (files) => {
     if (files.length > 0) {
       setAttachments((prev) => [...prev, ...files]);
     }
-    if (attachmentInputRef.current) attachmentInputRef.current.value = '';
   };
 
   const handleRemoveAttachment = (indexToRemove) => {
     setAttachments((prev) => prev.filter((_, idx) => idx !== indexToRemove));
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files || []);
-    if (files.length > 0) {
-      setAttachments((prev) => [...prev, ...files]);
-    }
   };
 
   // Send or Stream question
@@ -225,7 +200,6 @@ export default function ChatWorkspace({
 
     setMessages((prev) => [...prev, userMsg]);
     setInputQuestion('');
-    if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
     setIsLoading(true);
     setStreamingStage('Resolving query & context...');
@@ -730,236 +704,46 @@ export default function ChatWorkspace({
         </div>
 
         {/* BOTTOM: Sticky Prompt Input Bar */}
-        <div className="border-t border-[#30353A] p-4 bg-[#101214] flex-shrink-0">
-          <div className="max-w-3xl mx-auto">
-            {/* Active Document Scope Indicator */}
-            {selectedDocIds.length > 0 && (
-              <div className="mb-2 flex items-center justify-between px-3 py-1.5 bg-[#17191B] border border-[#F5C542]/40 rounded-xl text-xs text-[#F2F3F4]">
-                <div className="flex items-center gap-2 truncate">
-                  <span className="w-2 h-2 rounded-full bg-[#F5C542] animate-ping" />
-                  <span className="text-[#A2A9B0]">Scoped to:</span>
-                  <span className="font-semibold text-[#F5C542] truncate">
-                    {selectedDocIds.length === 1
-                      ? documents.find((d) => (d.doc_id || d.id) === selectedDocIds[0])?.filename || '1 document'
-                      : `${selectedDocIds.length} documents`}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedDocIds([]);
-                    onSelectDocId(null);
-                  }}
-                  className="flex items-center gap-1 text-[11px] text-[#A2A9B0] hover:text-[#F2F3F4] px-2 py-0.5 rounded hover:bg-[#1A1D20] transition"
-                >
-                  <X className="w-3 h-3" />
-                  <span>Search All Documents</span>
-                </button>
+        <div className="flex-shrink-0 border-t border-border bg-background p-4">
+          {selectedDocIds.length > 0 && (
+            <div className="mx-auto mb-2 flex max-w-3xl items-center justify-between rounded-xl border border-brand/40 bg-surface-raised px-3 py-1.5 text-xs text-foreground">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-brand animate-ping" />
+                <span className="text-muted-dim">Scoped to:</span>
+                <span className="truncate font-semibold text-brand">
+                  {selectedDocIds.length === 1
+                    ? documents.find((d) => (d.doc_id || d.id) === selectedDocIds[0])?.filename || '1 document'
+                    : `${selectedDocIds.length} documents`}
+                </span>
               </div>
-            )}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedDocIds([]);
+                  onSelectDocId(null);
+                }}
+                className="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] text-muted-dim transition-colors hover:bg-surface hover:text-foreground"
+              >
+                <X className="h-3 w-3" />
+                <span>Search All Documents</span>
+              </button>
+            </div>
+          )}
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSend();
-              }}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              className={`relative flex flex-col bg-[#121417] border transition rounded-2xl ${
-                isDragging
-                  ? 'border-[#F5C542] bg-[#F5C542]/5'
-                  : 'border-[#20242A] focus-within:border-[#F5C542]/70'
-              }`}
-            >
-              {/* Drag overlay indicator */}
-              {isDragging && (
-                <div className="absolute inset-0 bg-[#121417]/95 backdrop-blur-sm rounded-2xl flex items-center justify-center gap-2 text-sm text-[#F5C542] font-medium z-10 pointer-events-none">
-                  <Paperclip className="w-5 h-5 animate-bounce" />
-                  <span>Drop PDF or documents here to attach</span>
-                </div>
-              )}
-
-              {/* Attachment Preview Chips */}
-              {attachments.length > 0 && (
-                <div className="flex flex-wrap gap-2 px-3 pt-2.5 pb-1 border-b border-[#20242A]">
-                  {attachments.map((file, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center gap-2 px-2.5 py-1 bg-[#181B1F] border border-[#20242A] rounded-lg text-xs text-[#F0F2F5]"
-                    >
-                      <Paperclip className="w-3.5 h-3.5 text-[#F5C542]" />
-                      <span className="truncate max-w-[150px] font-mono text-[11px]">{file.name}</span>
-                      <span className="text-[10px] text-[#8E95A0]">({(file.size / 1024).toFixed(0)} KB)</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveAttachment(idx)}
-                        className="text-[#8E95A0] hover:text-rose-400 p-0.5 rounded transition"
-                        title="Remove file"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="flex items-end p-2.5 gap-2">
-                <input
-                  type="file"
-                  multiple
-                  ref={attachmentInputRef}
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-
-                <button
-                  type="button"
-                  onClick={() => attachmentInputRef.current?.click()}
-                  className="p-2 text-[#8E95A0] hover:text-[#F5C542] hover:bg-[#181B1F] rounded-xl transition flex-shrink-0"
-                  title="Attach documents"
-                >
-                  <Paperclip className="w-4 h-4" />
-                </button>
-
-                {/* Model Selector Dropdown */}
-                <div className="relative flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setShowModelMenu(!showModelMenu)}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1A1D20] hover:bg-[#22262B] border border-[#30353A] text-xs font-mono text-[#F2F3F4] rounded-xl transition"
-                    title="Select AI Model"
-                  >
-                    <Cpu className="w-3.5 h-3.5 text-[#F5C542]" />
-                    <span className="hidden sm:inline text-[11px] font-medium">{selectedModel}</span>
-                    <ChevronDown className="w-3 h-3 text-[#A2A9B0]" />
-                  </button>
-
-                  {showModelMenu && (
-                    <div className="absolute bottom-full mb-2 left-0 w-52 bg-[#17191B] border border-[#30353A] rounded-xl shadow-2xl p-1 z-30">
-                      <div className="px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider text-[#A2A9B0]/70 border-b border-[#30353A]/50">
-                        Ollama & Local LLM
-                      </div>
-                      {[
-                        { id: 'llama3.2', name: 'Llama 3.2 (3B)', badge: 'Default' },
-                        { id: 'llama3.1:8b', name: 'Llama 3.1 (8B)', badge: '8B' },
-                        { id: 'mistral:7b', name: 'Mistral (7B)', badge: 'Fast' },
-                        { id: 'qwen2.5:7b', name: 'Qwen 2.5 (7B)', badge: 'Math/Code' },
-                        { id: 'deepseek-r1:8b', name: 'DeepSeek R1 (8B)', badge: 'Reasoning' },
-                      ].map((m) => (
-                        <button
-                          key={m.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedModel(m.id);
-                            setShowModelMenu(false);
-                          }}
-                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition ${
-                            selectedModel === m.id
-                              ? 'bg-[#F5C542]/15 text-[#F5C542] font-semibold'
-                              : 'text-[#F2F3F4] hover:bg-[#1A1D20]'
-                          }`}
-                        >
-                          <span className="truncate">{m.name}</span>
-                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#101214] text-[#A2A9B0] border border-[#30353A]">
-                            {m.badge}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Search Mode Toggle */}
-                <div className="relative flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setShowSearchMenu(!showSearchMenu)}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[#1A1D20] hover:bg-[#22262B] border border-[#30353A] text-xs font-mono text-[#F2F3F4] rounded-xl transition"
-                    title="Select Retrieval Mode"
-                  >
-                    <Layers className="w-3.5 h-3.5 text-[#F5C542]" />
-                    <span className="hidden sm:inline text-[11px] font-medium capitalize">{searchMode}</span>
-                    <ChevronDown className="w-3 h-3 text-[#A2A9B0]" />
-                  </button>
-
-                  {showSearchMenu && (
-                    <div className="absolute bottom-full mb-2 left-0 w-48 bg-[#17191B] border border-[#30353A] rounded-xl shadow-2xl p-1 z-30">
-                      <div className="px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider text-[#A2A9B0]/70 border-b border-[#30353A]/50">
-                        Retrieval Strategy
-                      </div>
-                      {[
-                        { id: 'hybrid', name: 'Hybrid (RRF)', desc: 'Dense + Sparse BM25' },
-                        { id: 'vector', name: 'Semantic Vector', desc: 'Dense ChromaDB' },
-                        { id: 'bm25', name: 'Keyword BM25', desc: 'Exact Sparse Match' },
-                      ].map((sm) => (
-                        <button
-                          key={sm.id}
-                          type="button"
-                          onClick={() => {
-                            setSearchMode(sm.id);
-                            setShowSearchMenu(false);
-                          }}
-                          className={`w-full flex flex-col text-left px-2.5 py-1.5 rounded-lg text-xs transition ${
-                            searchMode === sm.id
-                              ? 'bg-[#F5C542]/15 text-[#F5C542] font-semibold'
-                              : 'text-[#F2F3F4] hover:bg-[#1A1D20]'
-                          }`}
-                        >
-                          <span className="font-medium">{sm.name}</span>
-                          <span className="text-[10px] text-[#A2A9B0]/80">{sm.desc}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <textarea
-                  ref={textareaRef}
-                  value={inputQuestion}
-                  onChange={(e) => {
-                    setInputQuestion(e.target.value);
-                    e.target.style.height = 'auto';
-                    e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
-                  }}
-                  placeholder="Ask anything about your documents... (Enter to send, Shift+Enter for newline)"
-                  rows={1}
-                  className="w-full bg-transparent border-none text-sm text-[#F2F3F4] placeholder-[#A2A9B0]/60 px-2 py-1.5 focus:outline-none resize-none max-h-52 leading-relaxed"
-                />
-
-                <div className="flex items-center gap-2 flex-shrink-0 pr-1 pb-0.5">
-                  {isLoading ? (
-                    <button
-                      type="button"
-                      onClick={handleStopGeneration}
-                      className="p-2.5 bg-[#1A1D20] hover:bg-[#22262B] text-rose-400 rounded-xl transition border border-[#30353A]"
-                      title="Stop generation"
-                    >
-                      <Square className="w-4 h-4 fill-rose-400" />
-                    </button>
-                  ) : (
-                    <button
-                      type="submit"
-                      disabled={!inputQuestion.trim() && attachments.length === 0}
-                      className="p-2.5 bg-[#F5C542] hover:bg-[#FFD358] disabled:opacity-40 text-[#101214] rounded-xl font-bold transition shadow-sm"
-                      title="Send question"
-                    >
-                      <Send className="w-4 h-4 stroke-[2.5]" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </form>
-            <p className="text-[10px] text-center text-[#A2A9B0]/60 mt-2 font-mono">
-              Grounded in local ChromaDB vectors with Ollama Llama 3.2. Every factual claim contains page-level citations.
-            </p>
-          </div>
+          <ChatComposer
+            value={inputQuestion}
+            onChange={setInputQuestion}
+            onSubmit={() => handleSend()}
+            isLoading={isLoading}
+            onStop={handleStopGeneration}
+            attachments={attachments}
+            onAddAttachments={handleAddAttachments}
+            onRemoveAttachment={handleRemoveAttachment}
+            selectedModel={selectedModel}
+            onSelectModel={setSelectedModel}
+            searchMode={searchMode}
+            onSelectSearchMode={setSearchMode}
+          />
         </div>
       </div>
 
