@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import MarkdownRenderer from '../../components/chat/MarkdownRenderer';
 import ContextualResearchPanel from '../../components/chat/ContextualResearchPanel';
+import WelcomeScreen from '../../components/chat/WelcomeScreen';
 import {
   fetchSessionMessages,
   recordMessageFeedback,
@@ -432,15 +433,6 @@ export default function ChatWorkspace({
 
   const isEmpty = messages.length === 0;
 
-  const suggestedPrompts = [
-    { title: 'Summarize documents', desc: 'Synthesize executive takeaways and core findings', icon: '📑', prompt: 'Summarize my uploaded documents with key takeaways and conclusions.' },
-    { title: 'Find key findings', desc: 'Identify primary discoveries, results, and claims', icon: '🔍', prompt: 'Find the most important findings and core conclusions across the uploaded documents.' },
-    { title: 'Compare documents', desc: 'Highlight agreements, divergences, and contradictions', icon: '⚖️', prompt: 'Compare two research papers or documents, highlighting agreements and contradictions.' },
-    { title: 'Explain simply', desc: 'Break down complex concepts into accessible terms', icon: '💡', prompt: 'Explain this document in simple language for a general audience.' },
-    { title: 'Extract statistics', desc: 'Extract percentages, metrics, benchmarks, and data', icon: '📊', prompt: 'Extract key statistics, quantitative metrics, and performance data from the documents.' },
-    { title: 'Generate report', desc: 'Create a comprehensive cited research briefing', icon: '📝', prompt: 'Generate a structured report with methodology, findings, and page citations.' },
-  ];
-
   return (
     <div className="flex-1 flex h-[calc(100vh-3.5rem)] md:h-screen overflow-hidden bg-[#0C0D0E] text-[#F0F2F5]">
       {/* CENTER: Main Conversation View */}
@@ -497,41 +489,7 @@ export default function ChatWorkspace({
         {/* Message Feed / Empty State */}
         <div className="flex-1 overflow-y-auto px-4 md:px-6 py-6 space-y-6">
           {isEmpty ? (
-            /* Centered DocNest Hero & Minimal Starter Prompts */
-            <div className="max-w-2xl mx-auto h-full flex flex-col items-center justify-center text-center py-10 transition-all duration-300">
-              <div className="flex flex-col items-center space-y-3 mb-8">
-                <div className="w-12 h-12 rounded-2xl bg-[#F5C542]/10 border border-[#F5C542]/20 flex items-center justify-center text-[#F5C542] shadow-sm">
-                  <Sparkles className="w-6 h-6 text-[#F5C542]" />
-                </div>
-                <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-[#F0F2F5]">
-                  DocNest
-                </h1>
-                <p className="text-xs sm:text-sm text-[#8E95A0] max-w-sm font-normal leading-relaxed">
-                  Your documents. Your questions. Clear answers.
-                </p>
-              </div>
-
-              {/* Prompt Suggestions Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full text-left">
-                {suggestedPrompts.map((item, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleSend(item.prompt)}
-                    className="p-3.5 bg-[#121417] hover:bg-[#181B1F] border border-[#20242A] hover:border-[#F5C542]/50 rounded-xl transition text-left group shadow-sm"
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-base">{item.icon}</span>
-                      <span className="text-xs font-semibold text-[#F0F2F5] group-hover:text-[#F5C542] transition">
-                        {item.title}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-[#8E95A0] line-clamp-2 leading-relaxed">
-                      {item.desc}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
+            <WelcomeScreen onPrompt={handleSend} documentCount={documents.length} />
           ) : (
             /* Conversation Messages Feed */
             <div className="max-w-3xl mx-auto space-y-6">
