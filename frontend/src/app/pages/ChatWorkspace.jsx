@@ -24,8 +24,8 @@ import {
   ChevronDown,
   Edit2,
 } from 'lucide-react';
-import MarkdownRenderer from '../components/MarkdownRenderer';
-import ContextualResearchPanel from '../components/ContextualResearchPanel';
+import MarkdownRenderer from '../../components/chat/MarkdownRenderer';
+import ContextualResearchPanel from '../../components/chat/ContextualResearchPanel';
 import {
   fetchSessionMessages,
   recordMessageFeedback,
@@ -33,7 +33,7 @@ import {
   uploadDocumentFile,
   createResearchNote,
   autoTitleChatSession,
-} from '../services/api';
+} from '../../services/api';
 
 export default function ChatWorkspace({
   documents = [],

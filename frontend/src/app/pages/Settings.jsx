@@ -16,7 +16,7 @@ import {
   Check,
   Calendar,
 } from 'lucide-react';
-import { fetchEvalRuns, triggerEvalRun } from '../services/api';
+import { fetchEvalRuns, triggerEvalRun } from '../../services/api';
 
 export default function Settings({ systemStatus, onRefreshStatus }) {
   const [activeSubTab, setActiveSubTab] = useState('eval'); // 'eval' | 'infrastructure'

@@ -11,7 +11,7 @@ import {
   RefreshCw,
   FolderPlus,
 } from 'lucide-react';
-import { uploadDocumentFile } from '../services/api';
+import { uploadDocumentFile } from '../../services/api';
 
 const ALLOWED_EXTS = ['.pdf', '.docx', '.txt', '.md', '.csv'];
 

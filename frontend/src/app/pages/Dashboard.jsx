@@ -15,10 +15,10 @@ import {
   Award,
   Sparkles,
 } from 'lucide-react';
-import { fetchDashboardStats, fetchChatSessions } from '../services/api';
+import { fetchDashboardStats, fetchChatSessions } from '../../services/api';
 
-import PipelineControlPanel from '../components/PipelineControlPanel';
-import SampleDatasetCards from '../components/SampleDatasetCards';
+import PipelineControlPanel from '../../components/chat/PipelineControlPanel';
+import SampleDatasetCards from '../../components/documents/SampleDatasetCards';
 
 export default function Dashboard({
   documents = [],

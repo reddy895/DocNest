@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FileText, Cpu, ShieldCheck, Download, CheckCircle2, RefreshCw } from 'lucide-react';
-import { loadSampleDocuments } from '../services/api';
+import { loadSampleDocuments } from '../../services/api';
 
 export default function SampleDatasetCards({ onSampleLoaded }) {
   const [loadingSample, setLoadingSample] = useState(null);

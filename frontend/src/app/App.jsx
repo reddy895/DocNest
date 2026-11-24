@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import AppLayout from './layouts/AppLayout';
+import AppLayout from '../components/layout/AppLayout';
 import DocumentLibrary from './pages/DocumentLibrary';
 import ChatWorkspace from './pages/ChatWorkspace';
 import ResearchStudio from './pages/ResearchStudio';
 import Settings from './pages/Settings';
-import UploadModal from './components/UploadModal';
-import DocumentViewer from './components/DocumentViewer';
+import UploadModal from '../components/documents/UploadModal';
+import DocumentViewer from '../components/documents/DocumentViewer';
 import {
   fetchHealth,
   fetchDocuments,
@@ -14,7 +14,7 @@ import {
   createChatSession,
   updateChatSession,
   deleteChatSession,
-} from './services/api';
+} from '../services/api';
 
 export default function App() {
   // Conversation-first experience

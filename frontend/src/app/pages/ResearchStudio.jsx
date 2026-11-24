@@ -23,7 +23,7 @@ import {
   Search,
   Tag,
 } from 'lucide-react';
-import MarkdownRenderer from '../components/MarkdownRenderer';
+import MarkdownRenderer from '../../components/chat/MarkdownRenderer';
 import {
   summarizeResearch,
   compareDocuments,
@@ -32,7 +32,7 @@ import {
   fetchResearchNotes,
   createResearchNote,
   deleteResearchNote,
-} from '../services/api';
+} from '../../services/api';
 
 export default function ResearchStudio({ documents = [], onOpenViewer = () => {} }) {
   const [activeTab, setActiveTab] = useState('summarize'); // summarize | compare | quiz | flashcards | notes

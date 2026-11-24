@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sliders, Save, Check, RefreshCw, Zap } from 'lucide-react';
-import { fetchUserSettings, updateUserSettings } from '../services/api';
+import { fetchUserSettings, updateUserSettings } from '../../services/api';
 
 export default function PipelineControlPanel({ onSettingsUpdated }) {
   const [settings, setSettings] = useState({

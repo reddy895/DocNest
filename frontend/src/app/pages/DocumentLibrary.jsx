@@ -23,8 +23,8 @@ import {
   Copy,
   Check,
 } from 'lucide-react';
-import SampleDatasetCards from '../components/SampleDatasetCards';
-import { reindexDocument, fetchCollections, fetchRawDocumentText } from '../services/api';
+import SampleDatasetCards from '../../components/documents/SampleDatasetCards';
+import { reindexDocument, fetchCollections, fetchRawDocumentText } from '../../services/api';
 
 export default function DocumentLibrary({
   documents = [],

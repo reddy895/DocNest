@@ -22,8 +22,8 @@ import {
   X,
   Check,
 } from 'lucide-react';
-import AuthModal from '../components/AuthModal';
-import WorkspaceSelector from '../components/WorkspaceSelector';
+import AuthModal from '../ui/AuthModal';
+import WorkspaceSelector from '../sidebar/WorkspaceSelector';
 
 export default function AppLayout({
   activeTab,
