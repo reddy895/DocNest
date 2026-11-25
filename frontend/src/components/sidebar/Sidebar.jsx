@@ -1,136 +1,25 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Layers,
-  MessageSquare,
+  SquarePen,
+  Search,
   Files,
   BookOpen,
   Bookmark,
   Settings as SettingsIcon,
-  Plus,
+  PanelLeftClose,
+  PanelLeftOpen,
   UploadCloud,
-  Search,
-  Pin,
-  Trash2,
-  Edit2,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Settings,
+  X,
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import ConversationList from './ConversationList';
 
 export const PRIMARY_NAV = [
-  { id: 'library', name: 'Document Library', icon: Files },
-  { id: 'chat', name: 'Research Workspace', icon: MessageSquare },
-  { id: 'notes', name: 'Saved Notes', icon: Bookmark },
-  { id: 'research', name: 'Research Studio', icon: BookOpen },
-  { id: 'settings', name: 'Settings', icon: SettingsIcon },
+  { id: 'library', name: 'Document library', icon: Files },
+  { id: 'research', name: 'Research workspace', icon: BookOpen },
+  { id: 'notes', name: 'Saved notes', icon: Bookmark },
 ];
-
-function ConversationRow({
-  session,
-  active,
-  collapsed,
-  editing,
-  editTitle,
-  onEditTitle,
-  onStartEdit,
-  onSaveEdit,
-  onCancelEdit,
-  onSelect,
-  onPin,
-  onDelete,
-}) {
-  if (collapsed) return null;
-
-  if (editing) {
-    return (
-      <div className="flex items-center gap-1 px-2 py-1">
-        <input
-          value={editTitle}
-          onChange={(event) => onEditTitle(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') onSaveEdit();
-            if (event.key === 'Escape') onCancelEdit();
-          }}
-          autoFocus
-          className="dn-input w-full px-1.5 py-0.5 text-xs"
-          aria-label="Conversation title"
-        />
-        <button
-          type="button"
-          onClick={onSaveEdit}
-          className="rounded p-1 text-emerald-300 hover:bg-emerald-500/10"
-          aria-label="Save title"
-        >
-          <Check className="h-3 w-3" />
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onSelect}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault();
-          onSelect();
-        }
-      }}
-      className={cn(
-        'group flex cursor-pointer items-center justify-between rounded-md px-2.5 py-1.5 transition-colors',
-        active
-          ? 'bg-surface text-brand'
-          : 'text-muted hover:bg-surface hover:text-foreground'
-      )}
-    >
-      <div className="flex min-w-0 items-center gap-2">
-        <MessageSquare
-          className={cn('h-3.5 w-3.5 flex-shrink-0', session.is_pinned ? 'text-brand' : 'text-muted-dim')}
-        />
-        <span className="truncate text-xs">{session.title}</span>
-      </div>
-      <div className="ml-1 hidden flex-shrink-0 items-center gap-0.5 group-hover:flex group-focus-within:flex">
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onStartEdit();
-          }}
-          className="rounded p-1 text-muted-dim hover:bg-background hover:text-foreground"
-          aria-label="Rename conversation"
-        >
-          <Edit2 className="h-3 w-3" />
-        </button>
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onPin();
-          }}
-          className="rounded p-1 text-muted-dim hover:bg-background hover:text-brand"
-          aria-label={session.is_pinned ? 'Unpin conversation' : 'Pin conversation'}
-        >
-          <Pin className={cn('h-3 w-3', session.is_pinned && 'fill-brand text-brand')} />
-        </button>
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onDelete();
-          }}
-          className="rounded p-1 text-muted-dim hover:bg-rose-500/10 hover:text-rose-300"
-          aria-label="Delete conversation"
-        >
-          <Trash2 className="h-3 w-3" />
-        </button>
-      </div>
-    </div>
-  );
-}
 
 export default function Sidebar({
   activeTab,
@@ -151,33 +40,29 @@ export default function Sidebar({
   onOpenProfile,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [editingSessionId, setEditingSessionId] = useState(null);
-  const [editTitle, setEditTitle] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+  const searchInputRef = useRef(null);
 
   const collapsed = mobile ? false : isCollapsed;
   const isOllamaConnected = systemStatus?.components?.ollama?.status === 'connected';
   const configuredModel = systemStatus?.components?.ollama?.configured_model || 'llama3.2';
 
-  const { pinnedSessions, recentSessions } = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    const filtered = query
-      ? sessions.filter((session) => (session.title || '').toLowerCase().includes(query))
-      : sessions;
-    return {
-      pinnedSessions: filtered.filter((session) => session.is_pinned),
-      recentSessions: filtered.filter((session) => !session.is_pinned).slice(0, 20),
-    };
-  }, [sessions, searchQuery]);
-
-  const startRename = (session) => {
-    setEditingSessionId(session.id);
-    setEditTitle(session.title || '');
-  };
-
-  const saveRename = (sessionId) => {
-    const title = editTitle.trim();
-    if (title) onRenameSession?.(sessionId, title);
-    setEditingSessionId(null);
+  const handleToggleSearch = () => {
+    if (collapsed) {
+      onToggleCollapse?.();
+      setShowSearch(true);
+      setTimeout(() => searchInputRef.current?.focus(), 120);
+      return;
+    }
+    setShowSearch((prev) => {
+      const next = !prev;
+      if (next) {
+        setTimeout(() => searchInputRef.current?.focus(), 40);
+      } else {
+        setSearchQuery('');
+      }
+      return next;
+    });
   };
 
   const selectSession = (sessionId) => {
@@ -185,71 +70,64 @@ export default function Sidebar({
     onNavigate?.('chat');
   };
 
-  const renderConversationGroup = (title, items, icon) => {
-    if (collapsed || items.length === 0) return null;
-    return (
-      <div className="space-y-0.5">
-        <div className="flex items-center gap-1 px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-muted-dim">
-          {icon}
-          <span>{title}</span>
-        </div>
-        {items.map((session) => (
-          <ConversationRow
-            key={session.id}
-            session={session}
-            active={activeSessionId === session.id && activeTab === 'chat'}
-            collapsed={collapsed}
-            editing={editingSessionId === session.id}
-            editTitle={editTitle}
-            onEditTitle={setEditTitle}
-            onStartEdit={() => startRename(session)}
-            onSaveEdit={() => saveRename(session.id)}
-            onCancelEdit={() => setEditingSessionId(null)}
-            onSelect={() => selectSession(session.id)}
-            onPin={() => onPinSession?.(session.id, !session.is_pinned)}
-            onDelete={() => onDeleteSession?.(session.id)}
-          />
-        ))}
-      </div>
-    );
-  };
-
   return (
-    <div className="flex h-full flex-col bg-surface-raised text-foreground">
-      <div className={cn('flex items-center border-b border-border py-3.5', collapsed ? 'justify-center px-2' : 'justify-between px-3.5')}>
+    <div className="flex h-full flex-col bg-[#171717] text-[#ECECEC] select-none">
+      {/* Top Branding + Collapse + New Chat */}
+      <div
+        className={cn(
+          'flex items-center px-3 pt-3 pb-2',
+          collapsed ? 'flex-col gap-2' : 'justify-between'
+        )}
+      >
         <button
           type="button"
           onClick={() => onNavigate?.('chat')}
-          className="flex min-w-0 items-center gap-2.5 text-left"
+          className="flex min-w-0 items-center gap-2.5 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-[#2F2F2F]"
           aria-label="DocNest home"
         >
-          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-brand text-brand-foreground">
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-[#2A2A2A] border border-[#3A3A3A] text-[#ECECEC]">
             <Layers className="h-4 w-4" />
           </div>
           {!collapsed && (
-            <div className="min-w-0">
-              <span className="block truncate text-base font-bold leading-tight tracking-tight">DocNest</span>
-              <span className="block truncate font-mono text-[10px] uppercase tracking-wider text-muted-dim">
-                Document Intelligence
-              </span>
-            </div>
+            <span className="truncate text-sm font-semibold tracking-tight text-[#ECECEC]">
+              DocNest
+            </span>
           )}
         </button>
 
-        {!mobile && (
+        <div className={cn('flex items-center gap-1', collapsed && 'flex-col')}>
+          {!mobile && (
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="rounded-lg p-1.5 text-[#A1A1A1] transition-colors hover:bg-[#2F2F2F] hover:text-[#ECECEC]"
+              aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {isCollapsed ? (
+                <PanelLeftOpen className="h-4 w-4" />
+              ) : (
+                <PanelLeftClose className="h-4 w-4" />
+              )}
+            </button>
+          )}
           <button
             type="button"
-            onClick={onToggleCollapse}
-            className="rounded-md p-1.5 text-muted-dim transition-colors hover:bg-surface hover:text-foreground"
-            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            onClick={() => {
+              onNewChat?.();
+              onNavigate?.('chat');
+            }}
+            className="rounded-lg p-1.5 text-[#A1A1A1] transition-colors hover:bg-[#2F2F2F] hover:text-[#ECECEC]"
+            aria-label="New chat"
+            title="New chat"
           >
-            {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            <SquarePen className="h-4 w-4" />
           </button>
-        )}
+        </div>
       </div>
 
-      <div className={cn('p-3', collapsed && 'px-2')}>
+      {/* ChatGPT-style Primary Actions */}
+      <div className={cn('space-y-0.5 px-2 pb-2', collapsed && 'px-2')}>
         <button
           type="button"
           onClick={() => {
@@ -257,133 +135,190 @@ export default function Sidebar({
             onNavigate?.('chat');
           }}
           className={cn(
-            'flex w-full items-center justify-center gap-2 rounded-lg bg-brand py-2 text-xs font-bold text-brand-foreground transition-colors hover:bg-brand-hover',
-            collapsed ? 'px-2' : 'px-3'
+            'flex w-full items-center rounded-lg py-2 text-[13px] font-medium text-[#ECECEC] transition-colors hover:bg-[#2F2F2F]',
+            collapsed ? 'justify-center px-2' : 'gap-2.5 px-2.5'
           )}
-          title="New Chat"
+          title="New chat"
         >
-          <Plus className="h-4 w-4 flex-shrink-0" strokeWidth={2.5} />
-          {!collapsed && <span>New Chat</span>}
+          <SquarePen className="h-4 w-4 flex-shrink-0 text-[#A1A1A1]" />
+          {!collapsed && <span>New chat</span>}
         </button>
+
+        <button
+          type="button"
+          onClick={handleToggleSearch}
+          className={cn(
+            'flex w-full items-center rounded-lg py-2 text-[13px] font-medium transition-colors',
+            showSearch
+              ? 'bg-[#2A2A2A] text-[#ECECEC]'
+              : 'text-[#ECECEC]/85 hover:bg-[#2F2F2F] hover:text-[#ECECEC]',
+            collapsed ? 'justify-center px-2' : 'gap-2.5 px-2.5'
+          )}
+          title="Search chats"
+        >
+          <Search className="h-4 w-4 flex-shrink-0 text-[#A1A1A1]" />
+          {!collapsed && <span>Search chats</span>}
+        </button>
+
+        {!collapsed && showSearch && (
+          <div className="px-1 py-1 animate-fade-in">
+            <div className="relative flex items-center rounded-lg border border-[#3A3A3A] bg-[#2A2A2A] px-2.5 py-1.5">
+              <Search className="mr-2 h-3.5 w-3.5 flex-shrink-0 text-[#777777]" />
+              <input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search chats..."
+                className="w-full bg-transparent text-xs text-[#ECECEC] placeholder-[#777777] focus:outline-none"
+                aria-label="Search chats"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="ml-1 text-[#777777] hover:text-[#ECECEC]"
+                  aria-label="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        <nav className="space-y-0.5 pt-1" aria-label="Workspace sections">
+          {PRIMARY_NAV.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onNavigate?.(item.id)}
+                aria-current={isActive ? 'page' : undefined}
+                title={item.name}
+                className={cn(
+                  'flex w-full items-center rounded-lg py-2 text-[13px] transition-colors',
+                  collapsed ? 'justify-center px-2' : 'gap-2.5 px-2.5',
+                  isActive
+                    ? 'bg-[#2F2F2F] font-medium text-[#ECECEC]'
+                    : 'text-[#ECECEC]/85 hover:bg-[#2A2A2A] hover:text-[#ECECEC]'
+                )}
+              >
+                <Icon
+                  className={cn(
+                    'h-4 w-4 flex-shrink-0',
+                    isActive ? 'text-[#ECECEC]' : 'text-[#A1A1A1]'
+                  )}
+                />
+                {!collapsed && <span className="truncate">{item.name}</span>}
+              </button>
+            );
+          })}
+        </nav>
       </div>
 
-      {!collapsed && (
-        <div className="px-2 pb-2">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-dim" />
-            <input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search conversations..."
-              className="dn-input w-full py-1.5 pl-7 pr-2 text-[11px]"
-              aria-label="Search conversations"
-            />
-          </div>
+      {/* Scrollable Recent Conversations */}
+      {!collapsed ? (
+        <div className="flex-1 overflow-y-auto px-2 py-2 border-t border-[#2E2E2E]">
+          <ConversationList
+            sessions={sessions}
+            activeSessionId={activeSessionId}
+            activeTab={activeTab}
+            searchQuery={searchQuery}
+            collapsed={collapsed}
+            onSelectSession={selectSession}
+            onRenameSession={onRenameSession}
+            onPinSession={onPinSession}
+            onDeleteSession={onDeleteSession}
+          />
         </div>
+      ) : (
+        <div className="flex-1" />
       )}
 
-      <nav className={cn('space-y-0.5 pb-2', collapsed ? 'px-2' : 'px-2')} aria-label="Primary">
-        {PRIMARY_NAV.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeTab === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => onNavigate?.(item.id)}
-              aria-current={isActive ? 'page' : undefined}
-              title={item.name}
-              className={cn(
-                'flex w-full items-center rounded-lg py-2 text-xs font-medium transition-colors',
-                collapsed ? 'justify-center px-2' : 'gap-2.5 px-2.5',
-                isActive
-                  ? 'border-l-2 border-brand bg-surface text-brand'
-                  : 'border-l-2 border-transparent text-muted hover:bg-surface hover:text-foreground'
-              )}
-            >
-              <Icon className={cn('h-4 w-4 flex-shrink-0', isActive ? 'text-brand' : 'text-muted-dim')} />
-              {!collapsed && <span className="truncate">{item.name}</span>}
-            </button>
-          );
-        })}
-      </nav>
-
-      {!collapsed && (
-        <div className="flex-1 space-y-3 overflow-y-auto border-t border-border px-2 py-2">
-          {renderConversationGroup('Pinned', pinnedSessions, <Pin className="h-3 w-3 text-brand" />)}
-          {renderConversationGroup('Recent', recentSessions, <MessageSquare className="h-3 w-3" />)}
-          {sessions.length === 0 && (
-            <p className="px-2 py-3 text-[11px] italic text-muted-dim">No conversations yet.</p>
-          )}
-          {sessions.length > 0 && pinnedSessions.length === 0 && recentSessions.length === 0 && (
-            <p className="px-2 py-3 text-[11px] italic text-muted-dim">No matches found.</p>
-          )}
-        </div>
-      )}
-      {collapsed && <div className="flex-1" />}
-
-      <div className={cn('space-y-2 border-t border-border p-3', collapsed && 'px-2')}>
+      {/* Fixed Bottom User, Model & Settings Section */}
+      <div className={cn('space-y-1.5 border-t border-[#2E2E2E] p-2.5', collapsed && 'px-2')}>
         {onOpenUpload && (
           <button
             type="button"
             onClick={onOpenUpload}
             className={cn(
-              'flex w-full items-center justify-center rounded-lg border border-border bg-surface py-1.5 text-[11px] font-medium text-foreground transition-colors hover:border-brand/50',
-              collapsed ? 'px-2' : 'gap-2 px-2'
+              'flex w-full items-center rounded-lg border border-[#3A3A3A] bg-[#212121] py-1.5 text-xs font-medium text-[#ECECEC] transition-colors hover:bg-[#2F2F2F]',
+              collapsed ? 'justify-center px-2' : 'justify-center gap-2 px-2.5'
             )}
-            title="Upload Document"
+            title="Upload document"
           >
-            <UploadCloud className="h-3.5 w-3.5 flex-shrink-0 text-brand" />
-            {!collapsed && <span>Upload Document</span>}
+            <UploadCloud className="h-3.5 w-3.5 flex-shrink-0 text-[#A1A1A1]" />
+            {!collapsed && <span>Upload document</span>}
           </button>
         )}
 
         <div
           className={cn(
-            'flex items-center rounded-lg border border-border bg-surface px-2 py-2',
-            collapsed ? 'justify-center' : 'justify-between'
+            'flex items-center rounded-lg px-2.5 py-1.5 text-xs text-[#A1A1A1]',
+            collapsed ? 'justify-center px-1' : 'justify-between'
           )}
-          title={`Ollama: ${isOllamaConnected ? 'connected' : 'unavailable'}`}
+          title={`Model: ${configuredModel} (${isOllamaConnected ? 'online' : 'offline'})`}
         >
           <div className="flex min-w-0 items-center gap-2">
             <span
               className={cn(
                 'h-2 w-2 flex-shrink-0 rounded-full',
-                isOllamaConnected ? 'bg-emerald-400' : 'animate-pulse bg-amber-400'
+                isOllamaConnected ? 'bg-emerald-500' : 'bg-[#777777]'
               )}
             />
             {!collapsed && (
-              <span className="truncate font-mono text-xs text-foreground">{configuredModel}</span>
+              <span className="truncate font-mono text-[11px] text-[#A1A1A1]">
+                {configuredModel}
+              </span>
             )}
           </div>
-          {!collapsed && <span className="font-mono text-[10px] text-muted-dim">local</span>}
+          {!collapsed && (
+            <span className="text-[10px] text-[#777777]">
+              {isOllamaConnected ? 'Online' : 'Offline'}
+            </span>
+          )}
         </div>
+
+        <button
+          type="button"
+          onClick={() => onNavigate?.('settings')}
+          className={cn(
+            'flex w-full items-center rounded-lg py-1.5 text-[13px] transition-colors',
+            collapsed ? 'justify-center px-2' : 'gap-2.5 px-2.5',
+            activeTab === 'settings'
+              ? 'bg-[#2F2F2F] text-[#ECECEC]'
+              : 'text-[#A1A1A1] hover:bg-[#2F2F2F] hover:text-[#ECECEC]'
+          )}
+          title="Settings"
+        >
+          <SettingsIcon className="h-4 w-4 flex-shrink-0" />
+          {!collapsed && <span>Settings</span>}
+        </button>
 
         <button
           type="button"
           onClick={onOpenProfile}
           className={cn(
-            'flex w-full items-center rounded-lg border border-border bg-surface px-2 py-2 text-left transition-colors hover:border-brand/40',
-            collapsed ? 'justify-center' : 'justify-between gap-2'
+            'flex w-full items-center rounded-lg py-1.5 text-left transition-colors hover:bg-[#2F2F2F]',
+            collapsed ? 'justify-center px-1' : 'gap-2.5 px-2'
           )}
-          title="Account and preferences"
+          title="User profile"
         >
-          <div className={cn('flex min-w-0 items-center', collapsed ? '' : 'gap-2.5')}>
-            <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-brand/40 bg-brand/10 text-[10px] font-bold text-brand">
-              {(currentUser?.username || currentUser?.full_name || 'U').charAt(0).toUpperCase()}
-            </div>
-            {!collapsed && (
-              <div className="min-w-0">
-                <span className="block truncate text-xs font-semibold leading-tight text-foreground">
-                  {currentUser?.full_name || currentUser?.username || 'Local Researcher'}
-                </span>
-                <span className="block truncate font-mono text-[10px] text-muted-dim">
-                  {currentUser?.workspace_name || 'Default Workspace'}
-                </span>
-              </div>
-            )}
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-[#303030] border border-[#3A3A3A] text-xs font-medium text-[#ECECEC]">
+            {(currentUser?.username || currentUser?.full_name || 'R').charAt(0).toUpperCase()}
           </div>
-          {!collapsed && <Settings className="h-3.5 w-3.5 flex-shrink-0 text-muted-dim" />}
+          {!collapsed && (
+            <div className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-medium text-[#ECECEC]">
+                {currentUser?.full_name || currentUser?.username || 'Local Researcher'}
+              </span>
+              <span className="block truncate text-[11px] text-[#777777]">
+                {currentUser?.workspace_name || 'Personal Workspace'}
+              </span>
+            </div>
+          )}
         </button>
       </div>
     </div>
