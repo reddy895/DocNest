@@ -49,3 +49,50 @@ def test_system_status_contract_for_ui_pills(client):
     assert "components" in data
     assert "ollama" in data["components"]
     assert "rag" in data["components"]
+
+
+def test_chatgpt_frontend_components_and_palette():
+    """
+    Verify modular ChatGPT-style frontend components, neutral dark palette,
+    welcome copy, and composer disclaimer exist without yellow-heavy branding.
+    """
+    from pathlib import Path
+
+    root = Path("frontend/src")
+    required_components = [
+        root / "components/sidebar/Sidebar.jsx",
+        root / "components/sidebar/ConversationList.jsx",
+        root / "components/chat/ChatHeader.jsx",
+        root / "components/chat/ChatContainer.jsx",
+        root / "components/chat/UserMessage.jsx",
+        root / "components/chat/AssistantMessage.jsx",
+        root / "components/chat/MarkdownRenderer.jsx",
+        root / "components/chat/CitationChip.jsx",
+        root / "components/chat/CodeBlock.jsx",
+        root / "components/chat/ThinkingIndicator.jsx",
+        root / "components/chat/RetrievalStatus.jsx",
+        root / "components/chat/ChatComposer.jsx",
+        root / "components/chat/ModelSelector.jsx",
+        root / "components/chat/WelcomeScreen.jsx",
+    ]
+    for path in required_components:
+        assert path.exists(), f"Missing component: {path}"
+
+    welcome = (root / "components/chat/WelcomeScreen.jsx").read_text()
+    assert "What can I help you understand?" in welcome
+    assert "Explore your documents, uncover insights, and research with AI." in welcome
+
+    composer = (root / "components/chat/ChatComposer.jsx").read_text()
+    assert "DocNest can make mistakes. Verify important information with the original sources." in composer
+    assert "#303030" in composer
+
+    sidebar = (root / "components/sidebar/Sidebar.jsx").read_text()
+    assert "#171717" in sidebar
+    assert "#F5C542" not in sidebar
+
+    retrieval_status = (root / "components/chat/RetrievalStatus.jsx").read_text()
+    assert "Thinking..." in retrieval_status
+    assert "Searching your documents..." in retrieval_status
+    assert "Analyzing retrieved information..." in retrieval_status
+    assert "Preparing your answer..." in retrieval_status
+
