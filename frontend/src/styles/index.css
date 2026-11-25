@@ -31,6 +31,7 @@
     color: var(--dn-text);
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow-x: hidden;
+    min-height: 100dvh;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }

@@ -91,13 +91,9 @@ export default function App() {
 
   // Session Handlers
   const handleNewSession = async () => {
-    try {
-      const newSession = await createChatSession('New Research');
-      setSessions((prev) => [newSession, ...prev]);
-      setActiveSessionId(newSession.id);
-    } catch (err) {
-      console.error('Failed to create session:', err);
-    }
+    setActiveSessionId(null);
+    setSelectedDocId(null);
+    setActiveTab('chat');
   };
 
   const handleRenameSession = async (sessionId, newTitle) => {
