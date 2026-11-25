@@ -35,10 +35,10 @@ export default function AppShell({
   };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground md:flex-row">
+    <div className="flex h-screen flex-col overflow-hidden bg-[#212121] text-[#ECECEC] md:flex-row">
       <aside
         className={cn(
-          'hidden flex-shrink-0 border-r border-border transition-[width] duration-200 md:block',
+          'hidden flex-shrink-0 border-r border-[#2E2E2E] bg-[#171717] transition-[width] duration-200 md:block',
           isCollapsed ? 'w-16' : 'w-64'
         )}
       >
@@ -61,27 +61,27 @@ export default function AppShell({
         />
       </aside>
 
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-surface-raised px-3.5 py-3 md:hidden">
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-[#2E2E2E] bg-[#171717] px-3.5 py-2.5 md:hidden">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-brand-foreground">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#3A3A3A] bg-[#2A2A2A] text-[#ECECEC]">
             <Layers className="h-4 w-4" />
           </div>
-          <span className="text-base font-bold text-foreground">DocNest</span>
+          <span className="text-sm font-semibold text-[#ECECEC]">DocNest</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={handleNewChat}
-            className="rounded-lg bg-brand p-2 text-brand-foreground transition-colors hover:bg-brand-hover"
+            className="rounded-lg bg-[#F0F0F0] p-1.5 text-[#171717] transition-colors hover:bg-white"
             aria-label="New chat"
             title="New chat"
           >
-            <Plus className="h-4 w-4" strokeWidth={2.5} />
+            <Plus className="h-4 w-4" strokeWidth={2.2} />
           </button>
           <button
             type="button"
             onClick={() => setMobileMenuOpen((open) => !open)}
-            className="rounded-lg border border-border p-2 text-muted transition-colors hover:bg-surface hover:text-foreground"
+            className="rounded-lg border border-[#3A3A3A] p-1.5 text-[#A1A1A1] transition-colors hover:bg-[#2F2F2F] hover:text-[#ECECEC]"
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={mobileMenuOpen}
           >
@@ -92,12 +92,12 @@ export default function AppShell({
 
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-30 bg-black/60 md:hidden"
           onClick={() => setMobileMenuOpen(false)}
           aria-hidden="true"
         >
           <div
-            className="h-full w-72 max-w-[85vw] animate-slide-up border-r border-border shadow-2xl"
+            className="h-full w-72 max-w-[85vw] animate-slide-up border-r border-[#2E2E2E] bg-[#171717]"
             onClick={(event) => event.stopPropagation()}
             role="dialog"
             aria-modal="true"
