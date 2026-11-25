@@ -1,68 +1,25 @@
-import React, { useState } from 'react';
-import { Copy, Check, FileText } from 'lucide-react';
+import React from 'react';
+import CodeBlock from './CodeBlock';
+import CitationChip from './CitationChip';
 
 /**
- * Enhanced Markdown, Code Block, Table, and Math Renderer
- * Formats headers, lists, syntax-highlighted code blocks with copy,
- * tables with titanium borders, math expressions, and clickable citation tags.
+ * ChatGPT-style Markdown, Code Block, Table, List, Blockquote, and Math Renderer
+ * Uses neutral dark typography and clickable CitationChip tags.
  */
 export default function MarkdownRenderer({ content = '', onCitationClick }) {
   if (!content) return null;
 
-  // Helper to render citation tags [Filename, p. X] as clickable pills
-  const renderTextWithCitations = (text) => {
-    const citationRegex = /\[([^\]]+,\s*p\.\s*\d+|[^\]]+,\s*Page\s*\d+|Page\s*\d+)\]/g;
-    const parts = [];
-    let lastIndex = 0;
-    let match;
-
-    while ((match = citationRegex.exec(text)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push(text.substring(lastIndex, match.index));
-      }
-
-      const citationText = match[1];
-      const pageMatch = citationText.match(/p\.\s*(\d+)/i) || citationText.match(/Page\s*(\d+)/i);
-      const pageNum = pageMatch ? parseInt(pageMatch[1], 10) : 1;
-      const filenameMatch = citationText.split(',')[0].trim();
-
-      parts.push(
-        <button
-          key={`cite_${match.index}`}
-          onClick={() => {
-            if (onCitationClick) {
-              onCitationClick({ filename: filenameMatch, page_number: pageNum });
-            }
-          }}
-          className="inline-flex items-center gap-1 mx-1 px-1.5 py-0.5 rounded text-[11px] font-mono bg-[#F5C542]/15 text-[#F5C542] border border-[#F5C542]/40 hover:bg-[#F5C542]/25 hover:border-[#F5C542] transition cursor-pointer select-none"
-          title={`Jump to ${filenameMatch} page ${pageNum}`}
-        >
-          <FileText className="w-3 h-3 text-[#F5C542]" />
-          <span>{citationText}</span>
-        </button>
-      );
-
-      lastIndex = citationRegex.lastIndex;
-    }
-
-    if (lastIndex < text.length) {
-      parts.push(text.substring(lastIndex));
-    }
-
-    return parts.length > 0 ? parts : text;
-  };
-
-  // Parse lines into blocks (code blocks, block math, headers, lists, tables, paragraphs)
   const lines = content.split('\n');
   const elements = [];
   let i = 0;
 
   while (i < lines.length) {
     const line = lines[i];
+    const trimmed = line.trim();
 
     // 1. Code Block ```lang
-    if (line.trim().startsWith('```')) {
-      const lang = line.trim().slice(3).trim() || 'text';
+    if (trimmed.startsWith('```')) {
+      const lang = trimmed.slice(3).trim() || 'text';
       const codeLines = [];
       i++;
       while (i < lines.length && !lines[i].trim().startsWith('```')) {
@@ -70,19 +27,17 @@ export default function MarkdownRenderer({ content = '', onCitationClick }) {
         i++;
       }
       i++; // skip closing ```
-      const codeString = codeLines.join('\n');
-
       elements.push(
-        <CodeBlock key={`code_${i}`} code={codeString} language={lang} />
+        <CodeBlock key={`code_${i}`} code={codeLines.join('\n')} language={lang} />
       );
       continue;
     }
 
     // 2. Block Math $$ formula $$
-    if (line.trim().startsWith('$$')) {
+    if (trimmed.startsWith('$$')) {
       const mathLines = [];
-      if (line.trim().length > 2 && line.trim().endsWith('$$') && line.trim() !== '$$') {
-        mathLines.push(line.trim().slice(2, -2).trim());
+      if (trimmed.length > 2 && trimmed.endsWith('$$') && trimmed !== '$$') {
+        mathLines.push(trimmed.slice(2, -2).trim());
         i++;
       } else {
         i++;
@@ -92,50 +47,86 @@ export default function MarkdownRenderer({ content = '', onCitationClick }) {
         }
         i++; // skip closing $$
       }
-      const formula = mathLines.join('\n');
       elements.push(
         <div
           key={`math_${i}`}
-          className="my-3 p-3.5 bg-[#17191B] border border-[#30353A] rounded-xl text-center font-mono text-sm text-[#F5C542] overflow-x-auto shadow-inner"
+          className="my-3 overflow-x-auto rounded-xl border border-[#2E2E2E] bg-[#171717] p-3.5 text-center font-mono text-sm text-[#ECECEC]"
         >
-          {formula}
+          {mathLines.join('\n')}
         </div>
       );
       continue;
     }
 
-    // 3. Headers
+    // 3. Horizontal Rule
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+      elements.push(<hr key={`hr_${i}`} className="my-4 border-[#2E2E2E]" />);
+      i++;
+      continue;
+    }
+
+    // 4. Headings
+    if (line.startsWith('#### ')) {
+      elements.push(
+        <h4 key={`h4_${i}`} className="mt-4 mb-1.5 text-[15px] font-semibold text-[#ECECEC]">
+          {renderFormattedInline(line.slice(5), onCitationClick)}
+        </h4>
+      );
+      i++;
+      continue;
+    }
     if (line.startsWith('### ')) {
       elements.push(
-        <h4 key={`h4_${i}`} className="text-sm font-bold text-[#F2F3F4] mt-4 mb-1.5 flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#F5C542]" />
-          {renderTextWithCitations(line.replace('### ', ''))}
-        </h4>
+        <h3 key={`h3_${i}`} className="mt-5 mb-2 text-base font-semibold text-[#ECECEC]">
+          {renderFormattedInline(line.slice(4), onCitationClick)}
+        </h3>
       );
       i++;
       continue;
     }
     if (line.startsWith('## ')) {
       elements.push(
-        <h3 key={`h3_${i}`} className="text-base font-bold text-[#F2F3F4] mt-5 mb-2 border-b border-[#30353A] pb-1.5">
-          {renderTextWithCitations(line.replace('## ', ''))}
-        </h3>
+        <h2 key={`h2_${i}`} className="mt-6 mb-2.5 text-lg font-semibold text-[#ECECEC]">
+          {renderFormattedInline(line.slice(3), onCitationClick)}
+        </h2>
       );
       i++;
       continue;
     }
     if (line.startsWith('# ')) {
       elements.push(
-        <h2 key={`h2_${i}`} className="text-lg font-bold text-[#F2F3F4] mt-6 mb-2.5">
-          {renderTextWithCitations(line.replace('# ', ''))}
-        </h2>
+        <h1 key={`h1_${i}`} className="mt-6 mb-3 text-xl font-semibold text-[#ECECEC]">
+          {renderFormattedInline(line.slice(2), onCitationClick)}
+        </h1>
       );
       i++;
       continue;
     }
 
-    // 4. Bullet lists
-    if (line.trim().startsWith('* ') || line.trim().startsWith('- ') || line.trim().startsWith('• ')) {
+    // 5. Blockquotes
+    if (trimmed.startsWith('> ')) {
+      const quoteLines = [];
+      while (i < lines.length && lines[i].trim().startsWith('> ')) {
+        quoteLines.push(lines[i].trim().slice(2));
+        i++;
+      }
+      elements.push(
+        <blockquote
+          key={`bq_${i}`}
+          className="my-3 border-l-2 border-[#3A3A3A] pl-4 text-[15px] leading-relaxed text-[#A1A1A1]"
+        >
+          {quoteLines.map((qLine, qIdx) => (
+            <p key={qIdx} className="my-1">
+              {renderFormattedInline(qLine, onCitationClick)}
+            </p>
+          ))}
+        </blockquote>
+      );
+      continue;
+    }
+
+    // 6. Unordered lists
+    if (trimmed.startsWith('* ') || trimmed.startsWith('- ') || trimmed.startsWith('• ')) {
       const listItems = [];
       while (
         i < lines.length &&
@@ -143,14 +134,13 @@ export default function MarkdownRenderer({ content = '', onCitationClick }) {
           lines[i].trim().startsWith('- ') ||
           lines[i].trim().startsWith('• '))
       ) {
-        const itemText = lines[i].trim().replace(/^[\*\-•]\s*/, '');
-        listItems.push(itemText);
+        listItems.push(lines[i].trim().replace(/^[\*\-•]\s*/, ''));
         i++;
       }
       elements.push(
-        <ul key={`ul_${i}`} className="list-disc list-outside pl-5 my-2 space-y-1.5 text-sm text-[#F2F3F4]/90">
+        <ul key={`ul_${i}`} className="my-2.5 list-disc space-y-1.5 pl-6 text-[15px] text-[#ECECEC]">
           {listItems.map((item, idx) => (
-            <li key={idx} className="leading-relaxed">
+            <li key={idx} className="leading-[1.7]">
               {renderFormattedInline(item, onCitationClick)}
             </li>
           ))}
@@ -159,13 +149,31 @@ export default function MarkdownRenderer({ content = '', onCitationClick }) {
       continue;
     }
 
-    // 5. Tables
-    if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+    // 7. Ordered lists
+    if (/^\d+\.\s+/.test(trimmed)) {
+      const orderedItems = [];
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i].trim())) {
+        orderedItems.push(lines[i].trim().replace(/^\d+\.\s+/, ''));
+        i++;
+      }
+      elements.push(
+        <ol key={`ol_${i}`} className="my-2.5 list-decimal space-y-1.5 pl-6 text-[15px] text-[#ECECEC]">
+          {orderedItems.map((item, idx) => (
+            <li key={idx} className="leading-[1.7]">
+              {renderFormattedInline(item, onCitationClick)}
+            </li>
+          ))}
+        </ol>
+      );
+      continue;
+    }
+
+    // 8. Tables
+    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
       const tableRows = [];
       while (i < lines.length && lines[i].trim().startsWith('|')) {
         const rowStr = lines[i].trim();
-        // Skip separator row |---|---|
-        if (!rowStr.replace(/\||\-|\s/g, '')) {
+        if (!rowStr.replace(/\||\-|\:|\s/g, '')) {
           i++;
           continue;
         }
@@ -180,22 +188,22 @@ export default function MarkdownRenderer({ content = '', onCitationClick }) {
       if (tableRows.length > 0) {
         const [headers, ...rows] = tableRows;
         elements.push(
-          <div key={`table_${i}`} className="my-3 overflow-x-auto border border-[#30353A] rounded-xl shadow-lg">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-[#17191B] text-[#F2F3F4] font-semibold border-b border-[#30353A]">
+          <div key={`table_${i}`} className="my-3 overflow-x-auto rounded-xl border border-[#3A3A3A]">
+            <table className="w-full text-left text-[13px]">
+              <thead className="border-b border-[#3A3A3A] bg-[#2A2A2A] text-[#ECECEC]">
                 <tr>
                   {headers.map((h, hIdx) => (
-                    <th key={hIdx} className="px-3.5 py-2.5 font-mono text-[11px] text-[#A2A9B0] uppercase tracking-wider">
-                      {h}
+                    <th key={hIdx} className="px-3.5 py-2.5 font-semibold">
+                      {renderFormattedInline(h, onCitationClick)}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#30353A]/50 bg-[#101214]">
+              <tbody className="divide-y divide-[#2E2E2E] bg-[#212121]">
                 {rows.map((row, rIdx) => (
-                  <tr key={rIdx} className="hover:bg-[#1A1D20]/70 transition">
+                  <tr key={rIdx} className="transition-colors hover:bg-[#2A2A2A]/60">
                     {row.map((cell, cIdx) => (
-                      <td key={cIdx} className="px-3.5 py-2 text-[#F2F3F4]/90">
+                      <td key={cIdx} className="px-3.5 py-2 text-[#ECECEC]">
                         {renderFormattedInline(cell, onCitationClick)}
                       </td>
                     ))}
@@ -209,23 +217,23 @@ export default function MarkdownRenderer({ content = '', onCitationClick }) {
       }
     }
 
-    // 6. Empty line
-    if (!line.trim()) {
-      elements.push(<div key={`sp_${i}`} className="h-2" />);
+    // 9. Empty line
+    if (!trimmed) {
+      elements.push(<div key={`sp_${i}`} className="h-1.5" />);
       i++;
       continue;
     }
 
-    // 7. Regular Paragraph
+    // 10. Regular Paragraph
     elements.push(
-      <p key={`p_${i}`} className="my-1.5 leading-relaxed text-sm text-[#F2F3F4]/90">
+      <p key={`p_${i}`} className="my-1.5 text-[15px] leading-[1.7] text-[#ECECEC]">
         {renderFormattedInline(line, onCitationClick)}
       </p>
     );
     i++;
   }
 
-  return <div className="space-y-1">{elements}</div>;
+  return <div className="prose-chatgpt space-y-1">{elements}</div>;
 }
 
 function renderFormattedInline(text, onCitationClick) {
@@ -236,7 +244,7 @@ function renderFormattedInline(text, onCitationClick) {
       return (
         <span
           key={`math_${mIdx}`}
-          className="px-1.5 py-0.5 mx-0.5 rounded bg-[#17191B] border border-[#30353A] font-mono text-xs text-[#F5C542]"
+          className="mx-0.5 rounded border border-[#3A3A3A] bg-[#2A2A2A] px-1.5 py-0.5 font-mono text-[13px] text-[#ECECEC]"
         >
           {mPart.slice(1, -1)}
         </span>
@@ -248,27 +256,30 @@ function renderFormattedInline(text, onCitationClick) {
     return parts.map((part, index) => {
       if (part.startsWith('**') && part.endsWith('**')) {
         return (
-          <strong key={`${mIdx}_${index}`} className="font-semibold text-[#F2F3F4]">
-            {renderInlineCitations(part.slice(2, -2), onCitationClick)}
+          <strong key={`${mIdx}_${index}`} className="font-semibold text-[#ECECEC]">
+            {renderInlineCodeAndCitations(part.slice(2, -2), onCitationClick)}
           </strong>
         );
       }
-      // Inline code `code`
-      const codeParts = part.split(/(`[^`]+`)/g);
-      return codeParts.map((sub, sIdx) => {
-        if (sub.startsWith('`') && sub.endsWith('`')) {
-          return (
-            <code
-              key={`${mIdx}_${index}_${sIdx}`}
-              className="px-1.5 py-0.5 mx-0.5 rounded bg-[#17191B] border border-[#30353A] font-mono text-xs text-[#F5C542]"
-            >
-              {sub.slice(1, -1)}
-            </code>
-          );
-        }
-        return renderInlineCitations(sub, onCitationClick);
-      });
+      return renderInlineCodeAndCitations(part, onCitationClick);
     });
+  });
+}
+
+function renderInlineCodeAndCitations(text, onCitationClick) {
+  const codeParts = text.split(/(`[^`]+`)/g);
+  return codeParts.map((sub, sIdx) => {
+    if (sub.startsWith('`') && sub.endsWith('`') && sub.length > 2) {
+      return (
+        <code
+          key={`ic_${sIdx}`}
+          className="mx-0.5 rounded bg-[#2A2A2A] px-1.5 py-0.5 font-mono text-[13px] text-[#ECECEC]"
+        >
+          {sub.slice(1, -1)}
+        </code>
+      );
+    }
+    return renderInlineCitations(sub, onCitationClick);
   });
 }
 
@@ -289,19 +300,13 @@ function renderInlineCitations(text, onCitationClick) {
     const filenameMatch = citationText.split(',')[0].trim();
 
     parts.push(
-      <button
+      <CitationChip
         key={`cite_${match.index}`}
-        onClick={() => {
-          if (onCitationClick) {
-            onCitationClick({ filename: filenameMatch, page_number: pageNum });
-          }
-        }}
-        className="inline-flex items-center gap-1 mx-1 px-1.5 py-0.5 rounded text-[11px] font-mono bg-[#F5C542]/15 text-[#F5C542] border border-[#F5C542]/40 hover:bg-[#F5C542]/30 hover:border-[#F5C542] transition cursor-pointer select-none align-baseline"
-        title={`Jump to ${filenameMatch} page ${pageNum}`}
-      >
-        <FileText className="w-3 h-3 text-[#F5C542]" />
-        <span>{citationText}</span>
-      </button>
+        inline
+        filename={filenameMatch}
+        pageNumber={pageNum}
+        onClick={() => onCitationClick?.({ filename: filenameMatch, page_number: pageNum })}
+      />
     );
 
     lastIndex = citationRegex.lastIndex;
@@ -312,37 +317,4 @@ function renderInlineCitations(text, onCitationClick) {
   }
 
   return parts.length > 0 ? parts : text;
-}
-
-function CodeBlock({ code, language }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <div className="my-3 rounded-xl border border-[#30353A] bg-[#101214] overflow-hidden text-xs shadow-xl">
-      <div className="flex items-center justify-between px-3.5 py-2 bg-[#17191B] border-b border-[#30353A] text-[#A2A9B0] font-mono">
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-rose-500/60 inline-block" />
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-500/60 inline-block" />
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/60 inline-block" />
-          <span className="uppercase text-[10px] tracking-wider font-semibold text-[#F5C542] ml-1">{language}</span>
-        </div>
-        <button
-          onClick={handleCopy}
-          className="flex items-center gap-1 text-[11px] text-[#A2A9B0] hover:text-[#F2F3F4] px-2 py-0.5 rounded hover:bg-[#1A1D20] transition"
-        >
-          {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-          <span>{copied ? 'Copied' : 'Copy code'}</span>
-        </button>
-      </div>
-      <pre className="p-4 overflow-x-auto text-[#F2F3F4] font-mono leading-relaxed bg-[#101214]">
-        <code>{code}</code>
-      </pre>
-    </div>
-  );
 }
