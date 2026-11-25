@@ -85,8 +85,8 @@ export default function Sidebar({
           className="flex min-w-0 items-center gap-2.5 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-[#2F2F2F]"
           aria-label="DocNest home"
         >
-          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-[#2A2A2A] border border-[#3A3A3A] text-[#ECECEC]">
-            <Layers className="h-4 w-4" />
+          <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#3A3A3A] bg-black">
+            <img src="/docnest-logo.jpg" alt="DocNest" className="h-full w-full object-cover" />
           </div>
           {!collapsed && (
             <span className="truncate text-sm font-semibold tracking-tight text-[#ECECEC]">
