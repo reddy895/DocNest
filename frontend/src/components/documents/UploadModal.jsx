@@ -139,7 +139,7 @@ export default function UploadModal({ isOpen, onClose, onUploadSuccess }) {
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#343A3F]">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-[#E5B83D]/10 rounded-lg text-[#E5B83D]">
+            <div className="p-2 bg-[#F0F0F0]/10 rounded-lg text-[#F0F0F0]">
               <UploadCloud className="w-5 h-5" />
             </div>
             <div>
@@ -167,8 +167,8 @@ export default function UploadModal({ isOpen, onClose, onUploadSuccess }) {
             onClick={() => fileInputRef.current?.click()}
             className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition flex flex-col items-center justify-center space-y-3 ${
               dragActive
-                ? 'border-[#E5B83D] bg-[#E5B83D]/5'
-                : 'border-[#343A3F] hover:border-[#E5B83D]/60 bg-[#111315]'
+                ? 'border-[#F0F0F0] bg-[#F0F0F0]/5'
+                : 'border-[#343A3F] hover:border-[#F0F0F0]/60 bg-[#212121]'
             }`}
           >
             <input
@@ -179,12 +179,12 @@ export default function UploadModal({ isOpen, onClose, onUploadSuccess }) {
               onChange={handleFileChange}
               className="hidden"
             />
-            <div className="w-12 h-12 rounded-full bg-[#191C1F] border border-[#343A3F] flex items-center justify-center text-[#E5B83D]">
+            <div className="w-12 h-12 rounded-full bg-[#191C1F] border border-[#343A3F] flex items-center justify-center text-[#F0F0F0]">
               <UploadCloud className="w-6 h-6" />
             </div>
             <div className="space-y-1">
               <p className="text-xs font-semibold text-[#F0F1F2]">
-                Drag and drop multiple files here, or <span className="text-[#E5B83D]">browse</span>
+                Drag and drop multiple files here, or <span className="text-[#F0F0F0]">browse</span>
               </p>
               <p className="text-[10px] text-[#A0A6AC] font-mono">
                 Preserves headings, reading order, and table layouts
@@ -213,10 +213,10 @@ export default function UploadModal({ isOpen, onClose, onUploadSuccess }) {
 
         {/* Upload Progress & Stepper */}
         {uploadStatus === 'uploading' && (
-          <div className="p-4 bg-[#111315] border border-[#343A3F] rounded-xl space-y-4">
+          <div className="p-4 bg-[#212121] border border-[#343A3F] rounded-xl space-y-4">
             <div className="flex items-center justify-between text-xs">
               <span className="font-semibold text-[#F0F1F2]">{statusMessage}</span>
-              <Loader2 className="w-4 h-4 animate-spin text-[#E5B83D]" />
+              <Loader2 className="w-4 h-4 animate-spin text-[#F0F0F0]" />
             </div>
 
             {/* Stepper */}
@@ -229,9 +229,9 @@ export default function UploadModal({ isOpen, onClose, onUploadSuccess }) {
                     <div
                       className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${
                         isDone
-                          ? 'bg-emerald-500 text-[#111315]'
+                          ? 'bg-emerald-500 text-[#212121]'
                           : isCurrent
-                          ? 'bg-[#E5B83D] text-[#111315] animate-pulse'
+                          ? 'bg-[#F0F0F0] text-[#212121] animate-pulse'
                           : 'bg-[#22262A] text-[#A0A6AC]'
                       }`}
                     >
@@ -240,7 +240,7 @@ export default function UploadModal({ isOpen, onClose, onUploadSuccess }) {
                     <span
                       className={`text-xs ${
                         isCurrent
-                          ? 'text-[#E5B83D] font-semibold'
+                          ? 'text-[#F0F0F0] font-semibold'
                           : isDone
                           ? 'text-[#F0F1F2]'
                           : 'text-[#A0A6AC]/60'
@@ -279,7 +279,7 @@ export default function UploadModal({ isOpen, onClose, onUploadSuccess }) {
           {uploadStatus === 'success' ? (
             <button
               onClick={resetModal}
-              className="px-4 py-2 bg-[#E5B83D] hover:bg-[#F2C64B] text-[#111315] font-semibold text-xs rounded-lg transition"
+              className="px-4 py-2 bg-[#F0F0F0] hover:bg-[#FFFFFF] text-[#212121] font-semibold text-xs rounded-lg transition"
             >
               Done & Return
             </button>
@@ -295,7 +295,7 @@ export default function UploadModal({ isOpen, onClose, onUploadSuccess }) {
               <button
                 onClick={handleStartUpload}
                 disabled={selectedFiles.length === 0 || uploadStatus === 'uploading'}
-                className="flex items-center gap-1.5 px-4 py-2 bg-[#E5B83D] hover:bg-[#F2C64B] disabled:opacity-40 text-[#111315] font-semibold text-xs rounded-lg shadow-sm transition"
+                className="flex items-center gap-1.5 px-4 py-2 bg-[#F0F0F0] hover:bg-[#FFFFFF] disabled:opacity-40 text-[#212121] font-semibold text-xs rounded-lg shadow-sm transition"
               >
                 {uploadStatus === 'uploading' ? (
                   <>

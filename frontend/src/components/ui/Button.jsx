@@ -5,7 +5,7 @@ const VARIANTS = {
   primary:
     'bg-brand text-brand-foreground hover:bg-brand-hover shadow-carbon-sm disabled:hover:bg-brand',
   secondary:
-    'bg-surface text-foreground border border-border hover:bg-[#22262B] hover:border-[#3A4046]',
+    'bg-surface text-foreground border border-border hover:bg-[#2F2F2F] hover:border-[#3A4046]',
   ghost:
     'bg-transparent text-muted hover:bg-surface hover:text-foreground',
   subtle:

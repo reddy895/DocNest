@@ -38,14 +38,14 @@ export function ToastProvider({ children }) {
             icon = <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />;
             borderClass = 'border-rose-500/40';
           } else if (toast.type === 'warning') {
-            icon = <AlertTriangle className="w-4 h-4 text-[#F5C542] shrink-0" />;
-            borderClass = 'border-[#F5C542]/40';
+            icon = <AlertTriangle className="w-4 h-4 text-[#F0F0F0] shrink-0" />;
+            borderClass = 'border-[#F0F0F0]/40';
           }
 
           return (
             <div
               key={toast.id}
-              className={`pointer-events-auto flex items-center justify-between gap-3 p-3 bg-[#1A1D20] border ${borderClass} rounded-xl shadow-2xl text-xs text-[#F2F3F4] animate-slide-up transition-all`}
+              className={`pointer-events-auto flex items-center justify-between gap-3 p-3 bg-[#2A2A2A] border ${borderClass} rounded-xl shadow-2xl text-xs text-[#ECECEC] animate-slide-up transition-all`}
             >
               <div className="flex items-center gap-2.5 truncate">
                 {icon}
@@ -53,7 +53,7 @@ export function ToastProvider({ children }) {
               </div>
               <button
                 onClick={() => removeToast(toast.id)}
-                className="text-[#A2A9B0] hover:text-[#F2F3F4] p-1 rounded-md transition"
+                className="text-[#A1A1A1] hover:text-[#ECECEC] p-1 rounded-md transition"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
