@@ -63,8 +63,8 @@ export default function AppShell({
 
       <header className="sticky top-0 z-40 flex items-center justify-between border-b border-[#2E2E2E] bg-[#171717] px-3.5 py-2.5 md:hidden">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg border border-[#3A3A3A] bg-black">
-            <img src="/docnest-logo.jpg" alt="DocNest" className="h-full w-full object-cover" />
+          <div className="flex h-7 w-7 items-center justify-center">
+            <img src="/docnest-logo.png" alt="DocNest" className="h-6 w-6 object-contain" />
           </div>
           <span className="text-sm font-semibold text-[#ECECEC]">DocNest</span>
         </div>

@@ -50,8 +50,8 @@ export default function AssistantMessage({
 
   return (
     <div className="group flex w-full items-start gap-3.5 animate-fade-in">
-      <div className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#3A3A3A] bg-black">
-        <img src="/docnest-logo.jpg" alt="DocNest" className="h-full w-full object-cover" />
+      <div className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-[#3A3A3A] bg-[#212121] p-1">
+        <img src="/docnest-logo.png" alt="DocNest" className="h-full w-full object-contain" />
       </div>
 
       <div className="min-w-0 flex-1 space-y-2.5">
