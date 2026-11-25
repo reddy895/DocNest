@@ -25,3 +25,12 @@ All backend endpoints and payloads remain strictly untouched:
 3. **Conversation Area**: Centered 800px column, right-aligned subtle dark-gray user bubbles, cardless natural AI prose, modular `CodeBlock`, `CitationChip`, `ThinkingIndicator`, `RetrievalStatus`.
 4. **Composer & Welcome**: Centered `"What can I help you understand?"` welcome with 4 compact prompts; floating rounded `#303030` composer with disclaimer footer.
 5. **Library, Studio, & Modals**: Consistent neutral dark theme, compact rows, responsive drawers.
+
+## 4. Implemented Modular Components
+- `Sidebar.jsx` & `ConversationList.jsx`
+- `ChatHeader.jsx`, `ChatContainer.jsx`, `UserMessage.jsx`, `AssistantMessage.jsx`
+- `MarkdownRenderer.jsx`, `CodeBlock.jsx`, `CitationChip.jsx`
+- `ThinkingIndicator.jsx`, `RetrievalStatus.jsx`
+- `ChatComposer.jsx`, `ModelSelector.jsx`, `WelcomeScreen.jsx`
+- `ContextualResearchPanel.jsx`, `DocumentLibrary.jsx`, `ResearchStudio.jsx`, `SavedNotes.jsx`
+
