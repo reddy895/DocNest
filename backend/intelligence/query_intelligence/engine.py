@@ -64,3 +64,4 @@ class QueryIntelligenceEngine:
             needs_rewriting=needs_rewrite,
             referenced_docs=list(selected_doc_ids or []),
         )
+

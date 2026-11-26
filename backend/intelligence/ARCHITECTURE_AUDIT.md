@@ -19,3 +19,4 @@ The Intelligence Engine 2.0 lives strictly under `backend/intelligence/`:
 - `citation_verification/` — strict source/page/chunk verification & claim-to-passage alignment
 - `answer_verification/` — faithfulness check, contradiction detection, bounded retry policy
 - `evaluation/` — 100+ benchmark dataset, Recall@K/MRR/NDCG/Faithfulness metrics, baseline vs enhanced runner
+

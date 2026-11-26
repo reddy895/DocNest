@@ -51,3 +51,4 @@ PYTHONPATH=. .venv/bin/pytest backend/intelligence/tests/
 # Run 110-question benchmark comparison
 .venv/bin/python -m backend.intelligence.evaluation.runner
 ```
+

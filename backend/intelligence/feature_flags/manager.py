@@ -15,6 +15,9 @@ class IntelligenceFeatureFlags(BaseModel):
     ENABLE_MODEL_COMPATIBILITY: bool = False
     ENABLE_CITATION_VERIFICATION: bool = False
     ENABLE_ANSWER_VERIFICATION: bool = False
+    ENABLE_EVIDENCE_GROUNDING: bool = False
+    ENABLE_PROJECT_INTELLIGENCE: bool = False
+    ENABLE_CLAIM_VERIFICATION: bool = False
 
 
 def _parse_bool(val: Optional[str], default: bool = False) -> bool:
@@ -37,6 +40,9 @@ class FeatureFlagManager:
         "ENABLE_MODEL_COMPATIBILITY",
         "ENABLE_CITATION_VERIFICATION",
         "ENABLE_ANSWER_VERIFICATION",
+        "ENABLE_EVIDENCE_GROUNDING",
+        "ENABLE_PROJECT_INTELLIGENCE",
+        "ENABLE_CLAIM_VERIFICATION",
     )
 
     def __init__(self, overrides: Optional[Dict[str, bool]] = None):
@@ -68,3 +74,4 @@ class FeatureFlagManager:
 
     def as_dict(self) -> Dict[str, bool]:
         return self.get_flags().model_dump()
+

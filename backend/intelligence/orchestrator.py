@@ -197,3 +197,4 @@ class IntelligenceOrchestrator:
 
         trace.fallback_triggered = len(trace.fallback_reasons) > 0
         return citations_res, answer_res
+

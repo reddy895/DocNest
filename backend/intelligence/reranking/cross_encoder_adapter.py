@@ -46,3 +46,4 @@ class SafeCrossEncoderAdapter:
             logger.warning("CrossEncoder adapter failed (%s); falling back to lexical scorer.", exc)
 
         return self.lexical_fallback.score_batch(query, passages)[:top_k]
+

@@ -64,3 +64,4 @@ def compute_keyword_score(query: str, text: str, expanded_terms: List[str] | Non
 
     hits = sum(1.0 + math.log1p(tf[t]) for t in q_tokens if t in tf)
     return round(hits / max(len(q_tokens), 1), 4)
+

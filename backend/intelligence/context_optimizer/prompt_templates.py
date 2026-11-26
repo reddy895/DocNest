@@ -44,3 +44,4 @@ def build_user_prompt(question: str, formatted_context: str) -> str:
         f"USER QUESTION:\n{question}\n\n"
         "ANSWER:"
     )
+

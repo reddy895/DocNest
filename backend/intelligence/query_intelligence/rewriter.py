@@ -1,4 +1,4 @@
-"""Conversation context resolution and follow-up query rewriting."""
+"""Module 5: Multi-turn conversation context resolution and follow-up query rewriting."""
 
 import re
 from typing import Dict, List, Optional
@@ -6,12 +6,17 @@ from typing import Dict, List, Optional
 
 class ConversationQueryRewriter:
     """
-    Resolves coreferences and implicit references from recent chat history
-    only when rewriting is actually needed, avoiding unnecessary distortion.
+    Resolves coreferences and implicit project/entity references across multi-turn
+    conversation history (e.g., 'Explain the architecture' -> 'What database is used?'
+    -> 'Why was it selected?'), avoiding unnecessary distortion on standalone queries.
     """
 
     PRONOUN_RE = re.compile(
-        r"\b(it|its|they|them|their|theirs|this|that|these|those|the\s+above|earlier)\b",
+        r"\b(it|its|they|them|their|theirs|this|that|these|those|the\s+above|earlier|same)\b",
+        re.IGNORECASE,
+    )
+    IMPLICIT_FOLLOWUP_RE = re.compile(
+        r"^(what|which|why|how|where|when|who)\b.{0,45}\b(used|selected|chosen|implemented|stored|handled|configured|worked|achieved)\b",
         re.IGNORECASE,
     )
 
@@ -27,9 +32,19 @@ class ConversationQueryRewriter:
             return False
         if self.PRONOUN_RE.search(text):
             return True
-        if len(text.split()) <= 4 and text.lower().startswith(("what about", "and ", "why ", "how ")):
+        if self.IMPLICIT_FOLLOWUP_RE.search(text):
+            return True
+        if len(text.split()) <= 5 and text.lower().startswith(("what about", "and ", "why ", "how ")):
             return True
         return False
+
+    @staticmethod
+    def _extract_turn_text(turn: Dict[str, str]) -> str:
+        return (turn.get("text") or turn.get("content") or "").strip()
+
+    @staticmethod
+    def _extract_turn_role(turn: Dict[str, str]) -> str:
+        return (turn.get("sender") or turn.get("role") or "").lower()
 
     def resolve_locally(
         self,
@@ -38,32 +53,45 @@ class ConversationQueryRewriter:
         selected_doc_names: Optional[List[str]] = None,
     ) -> str:
         """
-        Deterministic context-preserving resolution using recent user/assistant topics
-        and active document names without making unsupported assumptions.
+        Resolve ambiguous follow-ups using both the active project/topic anchor from
+        earlier user turns and the most recent assistant entity context.
         """
         text = (query or "").strip()
         if not self.needs_rewrite(text, chat_history):
             return text
 
-        # Extract the most recent substantive user topic from history
-        recent_user_turns = [
-            (m.get("text") or m.get("content") or "").strip()
-            for m in (chat_history or [])
-            if (m.get("sender") or m.get("role")) == "user"
+        history = chat_history or []
+        user_turns = [
+            self._extract_turn_text(m)
+            for m in history
+            if self._extract_turn_role(m) == "user"
         ]
-        recent_user_turns = [t for t in recent_user_turns if t and t.lower() != text.lower()]
+        user_turns = [t for t in user_turns if t and t.lower() != text.lower()]
 
-        context_hints: List[str] = []
-        if recent_user_turns:
-            prev_topic = recent_user_turns[-1]
-            # Keep it concise to avoid diluting embeddings
-            context_hints.append(prev_topic[:120])
+        assistant_turns = [
+            self._extract_turn_text(m)
+            for m in history
+            if self._extract_turn_role(m) == "assistant"
+        ]
+        assistant_turns = [t for t in assistant_turns if t]
+
+        context_parts: List[str] = []
+        # Include earlier anchor topic (e.g., project/architecture) + immediate prior user turn
+        if user_turns:
+            if len(user_turns) > 1:
+                context_parts.append(user_turns[0][:80])
+            context_parts.append(user_turns[-1][:100])
+
+        # If pronoun likely refers to an entity mentioned in the last assistant reply (e.g. "PostgreSQL", "ChromaDB")
+        if self.PRONOUN_RE.search(text) and assistant_turns:
+            last_ans = assistant_turns[-1][:140]
+            context_parts.append(last_ans)
 
         if selected_doc_names:
-            doc_str = ", ".join(selected_doc_names[:3])
-            context_hints.append(f"in {doc_str}")
+            context_parts.append(f"in {', '.join(selected_doc_names[:3])}")
 
-        if not context_hints:
+        if not context_parts:
             return text
 
-        return f"{text} (context: {' '.join(context_hints)})"
+        deduped_context = " | ".join(dict.fromkeys(context_parts))
+        return f"{text} (context: {deduped_context})"

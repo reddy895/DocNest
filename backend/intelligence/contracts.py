@@ -29,6 +29,43 @@ class AnswerStyle(str, Enum):
     BEGINNER = "beginner"
 
 
+class AnswerDepth(str, Enum):
+    BRIEF = "brief"
+    NORMAL = "normal"
+    DETAILED = "detailed"
+    COMPREHENSIVE_PROJECT = "comprehensive_project"
+
+
+class ClaimStatus(str, Enum):
+    SUPPORTED = "supported"
+    PARTIALLY_SUPPORTED = "partially_supported"
+    UNSUPPORTED = "unsupported"
+    CONTRADICTED = "contradicted"
+
+
+class ClaimVerificationItem(BaseModel):
+    claim: str
+    status: ClaimStatus
+    evidence_score: float = 0.0
+    supporting_chunk_id: Optional[str] = None
+    reason: Optional[str] = None
+
+
+class EvidenceSufficiencyResult(BaseModel):
+    is_sufficient: bool = True
+    coverage_score: float = 1.0
+    missing_aspects: List[str] = Field(default_factory=list)
+    contradictions_detected: List[str] = Field(default_factory=list)
+    needs_additional_retrieval: bool = False
+
+
+class CompletenessReport(BaseModel):
+    is_complete: bool = True
+    completeness_score: float = 1.0
+    covered_sections: List[str] = Field(default_factory=list)
+    missing_documented_sections: List[str] = Field(default_factory=list)
+
+
 class QueryAnalysis(BaseModel):
     original_query: str
     resolved_query: str
@@ -104,3 +141,4 @@ class IntelligenceTrace(BaseModel):
     fallback_triggered: bool = False
     fallback_reasons: List[str] = Field(default_factory=list)
     timings_ms: Dict[str, float] = Field(default_factory=dict)
+

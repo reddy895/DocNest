@@ -78,3 +78,4 @@ class QueryClassifier:
             return QueryIntent.FOLLOW_UP, True, is_multi_doc
 
         return QueryIntent.FACTUAL, False, is_multi_doc
+

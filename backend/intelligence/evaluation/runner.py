@@ -152,3 +152,4 @@ if __name__ == "__main__":
     runner = BenchmarkRunner()
     for rep in runner.run_all_profiles():
         print(rep.model_dump_json())
+

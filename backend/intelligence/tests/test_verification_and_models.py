@@ -140,3 +140,4 @@ def test_benchmark_dataset_and_runner():
     reports = runner.run_all_profiles()
     assert len(reports) == 6
     assert all(r.total_cases == len(dataset) for r in reports)
+

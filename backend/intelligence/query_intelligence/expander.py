@@ -57,3 +57,4 @@ class QueryExpander:
             return [f"{left}{suffix}", f"{right}{suffix}"]
 
         return [text]
+

@@ -48,3 +48,4 @@ class LightweightOverlapScorer:
             scored.append(copy)
         scored.sort(key=lambda item: item.final_score, reverse=True)
         return scored
+

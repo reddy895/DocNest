@@ -132,3 +132,4 @@ def test_reranking_engine_and_fallback():
     res = engine.rerank("Q3 revenue", passages, top_k=2)
     assert len(res) == 2
     assert res[0].doc_id in {"d1", "d2"}
+

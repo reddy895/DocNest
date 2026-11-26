@@ -75,3 +75,4 @@ class ModelCompatibilityManager:
         models = await prov.list_models()
         caps = [self.inspect_model(m, provider=provider) for m in models]
         return [c for c in caps if not c.is_embedding_model]
+

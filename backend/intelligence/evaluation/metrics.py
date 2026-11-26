@@ -68,3 +68,4 @@ def summarize_latencies(latencies_ms: Sequence[float]) -> Dict[str, float]:
         "p95_ms": round(ordered[p95_idx], 2),
         "max_ms": round(ordered[-1], 2),
     }
+

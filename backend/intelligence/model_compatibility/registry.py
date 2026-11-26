@@ -125,3 +125,4 @@ class ModelCapabilityRegistry:
             recommended_ram_gb=profile.get("recommended_ram_gb", 8),
             notes=profile.get("notes", "Standard compatible model."),
         )
+

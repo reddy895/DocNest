@@ -34,3 +34,4 @@ class ContextOrganizer:
             passages,
             key=lambda p: (-best_doc_score.get(p.doc_id, 0.0), p.doc_id, p.page_number, p.chunk_index),
         )
+

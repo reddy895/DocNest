@@ -49,3 +49,4 @@ def assert_compatible_embedding_dim(
             f"Incompatible embedding dimension {candidate_dim} for collection "
             f"'{collection_name}' (expected {expected_dim})."
         )
+

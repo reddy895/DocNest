@@ -46,3 +46,4 @@ class RelevanceAndDiversityFilter:
             selected.append(remaining.pop(best_idx))
 
         return selected
+

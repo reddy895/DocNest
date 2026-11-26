@@ -83,3 +83,4 @@ class CitationVerifier:
                 )
 
         return results
+

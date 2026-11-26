@@ -67,3 +67,4 @@ class WeightedHybridFusion:
         merged = list(by_chunk.values())
         merged.sort(key=lambda item: item.final_score, reverse=True)
         return merged
+

@@ -134,3 +134,4 @@ class OpenAICompatibleAdapter(LLMProvider):
                     delta = chunk_json.get("choices", [{}])[0].get("delta", {}).get("content", "")
                     if delta:
                         yield delta
+

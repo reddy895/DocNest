@@ -58,3 +58,4 @@ class RerankingEngine:
         except Exception as exc:
             logger.warning("RerankingEngine failed (%s); returning original passages.", exc)
             return passages[:top_k]
+

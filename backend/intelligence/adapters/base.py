@@ -72,3 +72,4 @@ async def execute_async_with_fallback(
         if fallback_reasons is not None:
             fallback_reasons.append(f"{stage_name}: {exc}")
         return await fallback_fn()
+

@@ -93,3 +93,4 @@ class OllamaProviderAdapter(LLMProvider):
                         yield chunk
                     if data.get("done"):
                         break
+

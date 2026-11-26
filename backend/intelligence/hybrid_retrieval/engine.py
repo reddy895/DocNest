@@ -69,3 +69,4 @@ class HybridRetrievalEngine:
 
         deduped = self.deduplicator.deduplicate(filtered)
         return deduped[:top_k]
+
