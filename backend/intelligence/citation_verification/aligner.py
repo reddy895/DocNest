@@ -53,10 +53,19 @@ class ClaimSourceAligner:
         answer_text: str,
         passages: List[RetrievedPassage],
     ) -> List[VerifiedCitation]:
-        sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+|\n+", answer_text or "") if s.strip()]
+        # Split sentences while ignoring periods inside [Filename, p. X] citations
+        protected = CITATION_PATTERN.sub(
+            lambda m: m.group(0).replace(".", "__DOT__"),
+            answer_text or "",
+        )
+        raw_sentences = [
+            s.replace("__DOT__", ".").strip()
+            for s in re.split(r"(?<=[.!?])\s+|\n+", protected)
+            if s.strip()
+        ]
         verified: List[VerifiedCitation] = []
 
-        for sent in sentences:
+        for sent in raw_sentences:
             base_checks = self.verifier.verify_answer_citations(sent, passages)
             for vc in base_checks:
                 if not vc.is_valid:
