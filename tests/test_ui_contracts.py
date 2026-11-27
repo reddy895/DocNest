@@ -96,3 +96,10 @@ def test_chatgpt_frontend_components_and_palette():
     assert "Analyzing retrieved information..." in retrieval_status
     assert "Preparing your answer..." in retrieval_status
 
+    logo_png = Path("frontend/public/docnest-logo.png")
+    assert logo_png.exists(), "Missing transparent docnest-logo.png"
+    assert "/docnest-logo.png" in sidebar
+    assert "/docnest-logo.png" in (root / "components/layout/AppShell.jsx").read_text()
+    assert "/docnest-logo.png" in (root / "components/chat/AssistantMessage.jsx").read_text()
+    assert "/docnest-logo.png" in Path("frontend/index.html").read_text()
+
