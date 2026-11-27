@@ -162,4 +162,8 @@ cd frontend && npm run build
 ---
 
 ## 8. License
-DocNest is distributed under the MIT License.
+DocNest is dual-licensed under either:
+- [MIT License](LICENSE-MIT)
+- [Apache License, Version 2.0](LICENSE-APACHE)
+
+You may choose either license at your option.
