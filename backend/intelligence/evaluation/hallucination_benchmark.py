@@ -345,3 +345,4 @@ async def run_hallucination_benchmark() -> List[HallucinationBenchmarkReport]:
 if __name__ == "__main__":
     for r in asyncio.run(run_hallucination_benchmark()):
         print(r.model_dump_json())
+

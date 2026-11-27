@@ -224,3 +224,4 @@ class MultiStagePipeline:
             extra_retrieval_triggered=extra_triggered,
             total_latency_ms=total_ms,
         )
+

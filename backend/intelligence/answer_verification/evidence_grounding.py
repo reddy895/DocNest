@@ -103,3 +103,4 @@ def build_strict_evidence_system_prompt() -> str:
         "7. If retrieved sources contradict each other, explicitly highlight the contradiction.\n"
         "8. Do NOT use general LLM knowledge to silently fill gaps."
     )
+

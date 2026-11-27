@@ -155,3 +155,4 @@ class ProjectIntelligenceEngine:
         updated.documented_sections_found = [s for s in analysis.target_sections if s in found]
         updated.missing_target_sections = [s for s in analysis.target_sections if s not in found]
         return updated
+
