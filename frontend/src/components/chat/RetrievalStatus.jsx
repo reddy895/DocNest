@@ -43,3 +43,4 @@ export default function RetrievalStatus({ stageKey = 'rewriting', hasStartedStre
     </div>
   );
 }
+

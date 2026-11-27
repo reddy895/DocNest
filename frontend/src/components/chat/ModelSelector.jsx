@@ -104,3 +104,4 @@ export default function ModelSelector({ selectedModel = 'llama3.2', onSelectMode
     </div>
   );
 }
+
