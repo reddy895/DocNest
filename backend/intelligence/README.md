@@ -14,6 +14,9 @@ ENABLE_CONTEXT_OPTIMIZATION=false
 ENABLE_MODEL_COMPATIBILITY=false
 ENABLE_CITATION_VERIFICATION=false
 ENABLE_ANSWER_VERIFICATION=false
+ENABLE_EVIDENCE_GROUNDING=false
+ENABLE_PROJECT_INTELLIGENCE=false
+ENABLE_CLAIM_VERIFICATION=false
 ```
 
 ## Modules
@@ -48,7 +51,13 @@ PYTHONPATH=. .venv/bin/pytest backend/intelligence/tests/
 # Run existing regression test suite
 .venv/bin/pytest tests/
 
-# Run 110-question benchmark comparison
+# Run 110-question retrieval benchmark comparison
 .venv/bin/python -m backend.intelligence.evaluation.runner
+
+# Run 100-question hallucination & deep project benchmark
+.venv/bin/python -m backend.intelligence.evaluation.hallucination_benchmark
+
+# Run complete backend + intelligence test suite (77 tests)
+PYTHONPATH=. .venv/bin/pytest backend/intelligence/tests/ tests/
 ```
 
