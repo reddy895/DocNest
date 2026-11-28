@@ -3,14 +3,17 @@
 import time
 from typing import Any, Dict, List, Optional, Tuple
 from backend.intelligence.contracts import (
+    AnswerDepth,
     AnswerStyle,
     AnswerVerificationResult,
+    EvidenceSufficiencyResult,
     IntelligenceTrace,
     OptimizedContext,
     QueryAnalysis,
     QueryIntent,
     RetrievedPassage,
 )
+from backend.intelligence.context_optimizer.depth_controls import resolve_answer_depth
 from backend.intelligence.feature_flags.manager import FeatureFlagManager
 from backend.intelligence.adapters.base import execute_with_fallback
 from backend.intelligence.adapters.existing_rag_adapter import (
@@ -39,6 +42,7 @@ class IntelligenceOrchestrator:
         citation_verifier: Optional[Any] = None,
         answer_verifier: Optional[Any] = None,
         project_engine: Optional[Any] = None,
+        sufficiency_checker: Optional[Any] = None,
     ):
         self.flags = flag_manager or FeatureFlagManager()
         self.base_retriever = retriever_adapter or ExistingRetrieverAdapter()
@@ -52,6 +56,7 @@ class IntelligenceOrchestrator:
         self.citation_verifier = citation_verifier
         self.answer_verifier = answer_verifier
         self.project_engine = project_engine
+        self.sufficiency_checker = sufficiency_checker
 
     def prepare_retrieval_and_context(
         self,
@@ -179,6 +184,47 @@ class IntelligenceOrchestrator:
         if pa is not None and hasattr(self.project_engine, "inspect_section_coverage"):
             trace.project_analysis = self.project_engine.inspect_section_coverage(pa, reranked)
 
+        # 3b. Hallucination Control / Evidence Sufficiency Check (with bounded retry)
+        if (
+            active.get("ENABLE_HALLUCINATION_CONTROL") or active.get("ENABLE_EVIDENCE_GROUNDING")
+        ) and self.sufficiency_checker is not None:
+            suff = execute_with_fallback(
+                "hallucination_control",
+                lambda: self.sufficiency_checker.check(qa.resolved_query, reranked),
+                lambda: EvidenceSufficiencyResult(is_sufficient=True, coverage_score=1.0),
+                fallback_reasons,
+            )
+            if not suff.is_sufficient and suff.needs_additional_retrieval:
+                extra = execute_with_fallback(
+                    "hallucination_control_retry",
+                    lambda: self.base_retriever.retrieve(
+                        query=qa.resolved_query,
+                        top_k=max(top_k * 6, 30),
+                        doc_ids=doc_ids,
+                        workspace_id=workspace_id,
+                    ),
+                    lambda: [],
+                    fallback_reasons,
+                )
+                if extra:
+                    seen = {p.chunk_id for p in reranked}
+                    merged_extra = list(reranked) + [p for p in extra if p.chunk_id not in seen]
+                    reranked = merged_extra[: max(top_k, len(reranked))]
+                    suff = self.sufficiency_checker.check(qa.resolved_query, reranked)
+            trace.evidence_sufficiency = suff
+            trace.recommended_depth = resolve_answer_depth(
+                requested_depth=None,
+                is_project_query=bool(
+                    (trace.project_analysis and getattr(trace.project_analysis, "is_project_query", False))
+                    or qa.is_project_query
+                ),
+                recommended_depth=(
+                    getattr(trace.project_analysis, "recommended_depth", AnswerDepth.NORMAL)
+                    if trace.project_analysis is not None
+                    else AnswerDepth.NORMAL
+                ),
+            )
+
         # 4. Context Optimization
         t3 = time.perf_counter()
         if active.get("ENABLE_CONTEXT_OPTIMIZATION") and self.context_engine is not None:
@@ -222,7 +268,9 @@ class IntelligenceOrchestrator:
             )
             trace.citation_verification = citations_res
 
-        if active.get("ENABLE_ANSWER_VERIFICATION") and self.answer_verifier is not None:
+        if (
+            active.get("ENABLE_HALLUCINATION_CONTROL") or active.get("ENABLE_ANSWER_VERIFICATION")
+        ) and self.answer_verifier is not None:
             answer_res = execute_with_fallback(
                 "answer_verification",
                 lambda: self.answer_verifier.verify(question, answer, passages),
