@@ -134,6 +134,7 @@ class AnswerVerificationResult(BaseModel):
 class IntelligenceTrace(BaseModel):
     flags_active: Dict[str, bool] = Field(default_factory=dict)
     query_analysis: Optional[QueryAnalysis] = None
+    project_analysis: Optional[Any] = None
     retrieval_count: int = 0
     reranked_count: int = 0
     context_tokens: int = 0

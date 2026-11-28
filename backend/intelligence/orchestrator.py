@@ -38,6 +38,7 @@ class IntelligenceOrchestrator:
         context_engine: Optional[Any] = None,
         citation_verifier: Optional[Any] = None,
         answer_verifier: Optional[Any] = None,
+        project_engine: Optional[Any] = None,
     ):
         self.flags = flag_manager or FeatureFlagManager()
         self.base_retriever = retriever_adapter or ExistingRetrieverAdapter()
@@ -50,6 +51,7 @@ class IntelligenceOrchestrator:
         self.context_engine = context_engine
         self.citation_verifier = citation_verifier
         self.answer_verifier = answer_verifier
+        self.project_engine = project_engine
 
     def prepare_retrieval_and_context(
         self,
@@ -89,6 +91,22 @@ class IntelligenceOrchestrator:
         trace.query_analysis = qa
         trace.timings_ms["query_intelligence_ms"] = round((time.perf_counter() - t0) * 1000, 2)
 
+        # 1b. Deep Project Understanding (multi-section retrieval targeting)
+        pa = None
+        project_queries: List[str] = []
+        if (
+            active.get("ENABLE_PROJECT_UNDERSTANDING") or active.get("ENABLE_PROJECT_INTELLIGENCE")
+        ) and self.project_engine is not None:
+            pa = execute_with_fallback(
+                "project_understanding",
+                lambda: self.project_engine.analyze_project_query(qa.resolved_query),
+                lambda: None,
+                fallback_reasons,
+            )
+            trace.project_analysis = pa
+            if pa is not None and getattr(pa, "is_project_query", False):
+                project_queries = list(getattr(pa, "section_queries", []) or [])
+
         # 2. Retrieval (Hybrid Enhancement or Baseline)
         t1 = time.perf_counter()
         if active.get("ENABLE_HYBRID_SEARCH") and self.hybrid_engine is not None:
@@ -97,6 +115,7 @@ class IntelligenceOrchestrator:
                 lambda: self.hybrid_engine.retrieve(
                     query=qa.resolved_query,
                     expanded_terms=qa.expanded_terms,
+                    sub_queries=project_queries or qa.sub_queries,
                     top_k=max(top_k * 4, 20),
                     doc_ids=doc_ids,
                     workspace_id=workspace_id,
@@ -109,6 +128,20 @@ class IntelligenceOrchestrator:
                 ),
                 fallback_reasons,
             )
+        elif project_queries:
+            seen_ids = set()
+            passages = []
+            for pq in [qa.resolved_query] + project_queries[:6]:
+                for item in self.base_retriever.retrieve(
+                    query=pq,
+                    top_k=max(top_k * 2, 10),
+                    doc_ids=doc_ids,
+                    workspace_id=workspace_id,
+                ):
+                    if item.chunk_id not in seen_ids:
+                        seen_ids.add(item.chunk_id)
+                        passages.append(item)
+            passages = passages[: max(top_k * 4, 20)]
         else:
             passages = self.base_retriever.retrieve(
                 query=qa.resolved_query,
@@ -142,6 +175,9 @@ class IntelligenceOrchestrator:
             reranked = passages[:top_k]
         trace.reranked_count = len(reranked)
         trace.timings_ms["reranking_ms"] = round((time.perf_counter() - t2) * 1000, 2)
+
+        if pa is not None and hasattr(self.project_engine, "inspect_section_coverage"):
+            trace.project_analysis = self.project_engine.inspect_section_coverage(pa, reranked)
 
         # 4. Context Optimization
         t3 = time.perf_counter()
