@@ -40,6 +40,26 @@ class QueryClassifier:
         r"\b(documents|papers|studies|reports|files|both|all\s+sources|across\s+the)\b",
         re.IGNORECASE,
     )
+    PROJECT_RE = re.compile(
+        r"\b((explain|describe)\s+(the|this)\s+(entire\s+|full\s+|complete\s+)?(project|architecture|system|methodology|implementation)|project\s+(overview|architecture|methodology|objectives|limitations|scope|outcomes)|complete\s+architecture|system\s+architecture|technologies\s+used|tech\s+stack|for\s+an\s+interview|presentation)\b",
+        re.IGNORECASE,
+    )
+
+    def is_project_question(
+        self,
+        query: str,
+        chat_history: Optional[List[Dict[str, str]]] = None,
+    ) -> bool:
+        text = (query or "").strip()
+        if not text:
+            return False
+        if self.PROJECT_RE.search(text):
+            return True
+        if chat_history and self.FOLLOW_UP_RE.search(text):
+            for msg in reversed(chat_history[-4:]):
+                if msg.get("role") == "user" and self.PROJECT_RE.search(msg.get("content", "")):
+                    return True
+        return False
 
     def classify(
         self,

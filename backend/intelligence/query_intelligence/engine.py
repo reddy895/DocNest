@@ -31,9 +31,19 @@ class QueryIntelligenceEngine:
         if not original:
             return QueryAnalysis(original_query="", resolved_query="", intent=QueryIntent.FACTUAL)
 
-        intent, is_follow_up, is_multi_doc = self.classifier.classify(
-            original, chat_history=chat_history, selected_doc_ids=selected_doc_ids
-        )
+        try:
+            intent, is_follow_up, is_multi_doc = self.classifier.classify(
+                original, chat_history=chat_history, selected_doc_ids=selected_doc_ids
+            )
+            is_project = self.classifier.is_project_question(original, chat_history=chat_history)
+        except Exception:
+            return QueryAnalysis(
+                original_query=original,
+                resolved_query=original,
+                intent=QueryIntent.FACTUAL,
+                sub_queries=[original],
+                referenced_docs=list(selected_doc_ids or []),
+            )
 
         needs_rewrite = self.rewriter.needs_rewrite(original, chat_history=chat_history)
         resolved = (
@@ -61,6 +71,7 @@ class QueryIntelligenceEngine:
             sub_queries=sub_queries,
             is_multi_document=is_multi_doc,
             is_follow_up=is_follow_up,
+            is_project_query=is_project,
             needs_rewriting=needs_rewrite,
             referenced_docs=list(selected_doc_ids or []),
         )

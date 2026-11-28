@@ -74,6 +74,7 @@ class QueryAnalysis(BaseModel):
     sub_queries: List[str] = Field(default_factory=list)
     is_multi_document: bool = False
     is_follow_up: bool = False
+    is_project_query: bool = False
     needs_rewriting: bool = False
     referenced_docs: List[str] = Field(default_factory=list)
     language: str = "en"
