@@ -1,7 +1,7 @@
 """Citation Verification Engine ensuring every cited source exists in retrieved evidence."""
 
 import re
-from typing import List, Tuple
+from typing import Any, Dict, List, Tuple
 from backend.intelligence.contracts import RetrievedPassage, VerifiedCitation
 
 
@@ -83,4 +83,47 @@ class CitationVerifier:
                 )
 
         return results
+
+    def verify_and_format_citations(
+        self,
+        answer_text: str,
+        retrieved_passages: List[RetrievedPassage],
+    ) -> List[Dict[str, Any]]:
+        """
+        Verify inline citations against retrieved passages and return only verified
+        citations formatted to match backend.app.models.schemas.Citation.
+        """
+        verified = self.verify_answer_citations(answer_text, retrieved_passages)
+        passage_by_chunk = {p.chunk_id: p for p in retrieved_passages if p.chunk_id}
+        seen_keys: set[Tuple[str, int]] = set()
+        formatted: List[Dict[str, Any]] = []
+
+        for item in verified:
+            if not item.is_valid or not item.chunk_id:
+                continue
+            passage = passage_by_chunk.get(item.chunk_id)
+            if passage is None or not passage.text.strip():
+                continue
+            key = (passage.chunk_id, passage.page_number)
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+
+            raw_score = (
+                passage.rerank_score
+                if passage.rerank_score is not None
+                else (passage.final_score or passage.dense_score or 0.5)
+            )
+            clamped_score = max(0.0, min(1.0, float(raw_score)))
+            formatted.append(
+                {
+                    "source_id": passage.chunk_id,
+                    "filename": passage.filename,
+                    "page_number": passage.page_number,
+                    "chunk_index": passage.chunk_index,
+                    "content": passage.text,
+                    "relevance_score": round(clamped_score, 4),
+                }
+            )
+        return formatted
 
